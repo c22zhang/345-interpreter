@@ -36,7 +36,7 @@
       (else #f))))
 
 (define m.value.int
-  (lambda (e)
+  (lambda (e, state)
     (cond
       ((number? e) e)
       ((eq? '+ (operator e)) (+ (m.value.int (operand1 e)) (m.value.int(operand2 e))))
@@ -47,7 +47,7 @@
       (else (error 'badop "undefined operator")))))
 
 (define m.value.boolean
-  (lambda (e)
+  (lambda (e, state)
     (cond
       ((or (arithmetic-operator? e) (number? e)) (m.value.int e))
       ((eq? '> (operator e)) (> (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
