@@ -9,5 +9,7 @@ else if (x * x > y)
   return x * x;
 else if (x * (x + x) > y)
   return x * (x + x);
+else if (3 > 5)
+  return y;
 else
   return y - 1;
