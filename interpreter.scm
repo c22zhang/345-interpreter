@@ -54,32 +54,35 @@
      
 (define store-variable-in-state
   (lambda (var state)
-    (cons (cons var (state-vars state)) (cdr state))))
-        
+    (if (contains? var (state-vars state))
+         state
+        (cons (cons var (state-vars state)) (cdr state)))))
 
 (define m.value.int
   (lambda (e state)
     (cond
       ((number? e) e) 
-      ((eq? '+ (operator e)) (+ (m.value.int (operand1 e)) (m.value.int(operand2 e))))
-      ((eq? '- (operator e)) (- (m.value.int (operand1 e)) (m.value.int(operand2 e))))
-      ((eq? '* (operator e)) (* (m.value.int (operand1 e)) (m.value.int(operand2 e))))
-      ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e)) (m.value.int(operand2 e))))
-      ((eq? '% (operator e)) (remainder (m.value.int (operand1 e)) (m.value.int(operand2 e))))
+      ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
       (else (error 'badop "undefined operator")))))
 
 (define m.value.boolean
   (lambda (e state)
     (cond
       ((or (arithmetic-operator? e) (number? e)) (m.value.int e))
-      ((eq? '> (operator e)) (> (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '>= (operator e)) (>= (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '< (operator e)) (< (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '<= (operator e)) (<= (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '== (operator e)) (eq? (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '&& (operator e)) (and (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '|| (operator e)) (or (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
-      ((eq? '!= (operator e)) (not (eq? (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e)))))
+      ((eq? 'true e) #t)
+      ((eq? 'false e) #f)
+      ((eq? '> (operator e)) (> (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '>= (operator e)) (>= (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '< (operator e)) (< (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '<= (operator e)) (<= (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '== (operator e)) (eq? (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '&& (operator e)) (and (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '|| (operator e)) (or (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
+      ((eq? '!= (operator e)) (not (eq? (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state))))
       (else (error 'badop "undefined operator")))))
 
 (define operator car)
