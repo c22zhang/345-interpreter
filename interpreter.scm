@@ -4,25 +4,29 @@
 
 (load "simpleParser.scm")
 
+(define keyword car)
+(define state-vars car)
+(define state-vals cadr)
+
 (define var-declaration?
   (lambda (expression)
     (cond
       ((null? expression) #f)
-      ((eq? 'var (car expression)) #t)
+      ((eq? 'var (keyword expression)) #t)
       (else #f))))
 
 (define assignment?
   (lambda (expression)
     (cond
       ((null? expression) #f)
-      ((eq? '= (car expression)) #t)
+      ((eq? '= (keyword expression)) #t)
       (else #f))))
 
 (define return?
   (lambda (expression)
     (cond
       ((null? expression) #f)
-      ((eq? 'return (car expression)) #t)
+      ((eq? 'return (keyword expression)) #t)
       (else #f))))
 
 (define arithmetic-operator?
@@ -35,10 +39,19 @@
       ((eq? '% op) #t)
       (else #f))))
 
-(define m.value.int
-  (lambda (e, state)
+(define atom?
+  (lambda (a)
     (cond
-      ((number? e) e)
+      (not (or (pair? a) (null? a) ) #t)
+      (else #f))))
+
+(define store-variable-in-state
+        
+
+(define m.value.int
+  (lambda (e state)
+    (cond
+      ((number? e) e) 
       ((eq? '+ (operator e)) (+ (m.value.int (operand1 e)) (m.value.int(operand2 e))))
       ((eq? '- (operator e)) (- (m.value.int (operand1 e)) (m.value.int(operand2 e))))
       ((eq? '* (operator e)) (* (m.value.int (operand1 e)) (m.value.int(operand2 e))))
@@ -47,7 +60,7 @@
       (else (error 'badop "undefined operator")))))
 
 (define m.value.boolean
-  (lambda (e, state)
+  (lambda (e state)
     (cond
       ((or (arithmetic-operator? e) (number? e)) (m.value.int e))
       ((eq? '> (operator e)) (> (m.value.boolean(operand1 e)) (m.value.boolean(operand2 e))))
@@ -61,6 +74,5 @@
       (else (error 'badop "undefined operator")))))
 
 (define operator car)
-  
 (define operand1 cadr)
 (define operand2 caddr)
