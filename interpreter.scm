@@ -45,7 +45,16 @@
       (not (or (pair? a) (null? a) ) #t)
       (else #f))))
 
+(define contains?
+  (lambda (var state-var-list)
+    (cond
+      ((null? state-var-list) #f)
+      ((eq? var (car state-var-list)) #t)
+      (else (contains? var (cdr state-var-list))))))
+     
 (define store-variable-in-state
+  (lambda (var state)
+    (cons (cons var (state-vars state)) (cdr state))))
         
 
 (define m.value.int
