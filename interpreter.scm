@@ -96,6 +96,19 @@
 	 ((eq? (car (state-vars state)) var) (car (state-vals state)))
 	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
 
+;;returns stateVals with deleted variable value
+(define modifyStateVals
+  (lambda (var stateVars stateVals)
+    (cond
+      ((null? stateVars) stateVals)
+      ((eq? (car stateVars) var) (cdr stateVals))
+      (else (cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
+      
+;;helper method that allows variables to be revalued 
+(define modifyVariableValue
+  (lambda (var val state)
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons(cons val (modifyStateVals var (state-vars state) (state-vals state))) '()))))
+
 ;;declare variable, or initialize variable
 (define M_state_declare
   (lambda (e state)
@@ -108,8 +121,8 @@
   (lambda (e state)
     (cond
       ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
-      ;;what to do if duplicate value?->remove variable and value from state
-      ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state)))))
+      ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
+      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
    
 (define m.value.int
   (lambda (e state)
