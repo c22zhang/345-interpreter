@@ -58,6 +58,27 @@
          state
         (cons (cons var (state-vars state)) (cdr state)))))
 
+;;takes state as input, retruns matching variable value
+(define getVariable
+  (lambda (state var)
+    (cond
+	((null? state) (error "Variable not declared"))
+        ((null? (state-vals state)) (error "Variable not initialized"))
+	((eq? (car (state-vars state)) var) (car (state-vals state)))
+	(else (getVariable (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
+
+;;helper method for appending variable to end of list
+(define appendList
+  (lambda (list val)
+    (cond
+      ((null? list) (cons val '()))
+    (else  (cons (car list) (appendList (cdr list) val))))))
+
+;;adds variable to state
+(define M_declareVariable
+  (lambda (state var)
+    (appendList (state-vars state) var)))
+           
 (define m.value.int
   (lambda (e state)
     (cond
@@ -88,3 +109,5 @@
 (define operator car)
 (define operand1 cadr)
 (define operand2 caddr)
+(define varName car)
+(define varValue cadr)
