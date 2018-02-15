@@ -42,8 +42,9 @@
 (define atom?
   (lambda (a)
     (cond
-	 (not (or (pair? a) (null? a) ) #t)
-	 (else #f))))
+      ((list? a) #f)
+      ((null? a) #f)
+      (else #t))))
 
 (define contains?
   (lambda (var state-var-list)
@@ -64,6 +65,7 @@
     (cond
       ((null? list) (cons val '()))
 (else (cons (car list) (appendList (cdr list) val))))))
+
 
 (define store-variable-value-in-state
   (lambda (var value state)
@@ -123,22 +125,26 @@
       ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
       ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
       ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
-   
+           
 (define m.value.int
   (lambda (e state)
-	(cond
-	 ((number? e) e) 
-	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-	 ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-	 ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-	 (else (error 'badop "undefined operator")))))
+    (cond
+      ((number? e) e)
+      ((atom? e) (getVariableValue state e))
+      ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+      (else (error 'badop "undefined operator")))))
 
+;expression evaluator for boolean/comparison operators/expressions
 (define m.value.boolean
   (lambda (e state)
 	(cond
-	 ((or (arithmetic-operator? e) (number? e)) (m.value.int e))
+	 ((or (arithmetic-operator? e) (number? e)) (m.value.int e state))
+         ((atom? e) (m.value.int e state))
+         ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
 	 ((eq? 'true e) #t)
 	 ((eq? 'false e) #f)
 	 ((eq? '> (operator e)) (> (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
@@ -151,8 +157,10 @@
 	 ((eq? '!= (operator e)) (not (eq? (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state))))
 	 (else (error 'badop "undefined operator")))))
 
+
 (define operator car)
 (define operand1 cadr)
 (define operand2 caddr)
 (define varName cadr)
 (define varValue caddr)
+
