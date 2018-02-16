@@ -178,6 +178,7 @@
 (define M_state_stmt
   (lambda (e state)
 	(cond
+         ((arithmetic-operator? (car e)) (M_state_assign e state))
 	 ((var-declaration? e) (M_state_declare e state))
 	 ((assignment? e) (M_state_assign e state) )
 	 ((return? e) (get-return-value e state))
@@ -210,6 +211,13 @@
          state
 	(M_state_stmt (then_stmt e) state))))
 
+(define M_state_while
+  (lambda (e state)
+    (if(m.value.boolean (cond_stmt e) state)
+       (M_state_stmt e (M_state_while e state))
+       state)))
+          
+          
 (define m.value.expr
   (lambda (e state)
     (cond
