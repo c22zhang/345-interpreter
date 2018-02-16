@@ -7,6 +7,19 @@
 (define keyword car)
 (define state-vars car)
 (define state-vals cadr)
+(define init-state
+  (lambda ()
+    '(() ())))
+
+(define interpret
+  (lambda (filename)
+    (parser filename)))
+
+(define interpret-state
+  (lambda(parse-tree state)
+    (cond
+      ((null? parse-tree) state)
+      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree ))))))
 
 (define var-declaration?
   (lambda (expression)
@@ -61,10 +74,10 @@
 
 ;;helper method for appending item to end of list
 (define appendList
-  (lambda (list val)
+  (lambda (state var)
     (cond
       ((null? list) (cons val '()))
-(else (cons (car list) (appendList (cdr list) val))))))
+      (else (cons (append (car state) (cons var '())) (cdr state))))))
 
 
 (define store-variable-value-in-state
@@ -125,7 +138,8 @@
       ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
       ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
       ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
-           
+
+;expression evaluator for arithmetic expressions
 (define m.value.int
   (lambda (e state)
     (cond
@@ -157,10 +171,9 @@
 	 ((eq? '!= (operator e)) (not (eq? (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state))))
 	 (else (error 'badop "undefined operator")))))
 
-
 (define operator car)
 (define operand1 cadr)
 (define operand2 caddr)
 (define varName cadr)
-(define varValue caddr)
+(define varValue cddr)
 
