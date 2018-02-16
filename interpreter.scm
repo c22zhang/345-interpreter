@@ -19,7 +19,7 @@
   (lambda(parse-tree state)
     (cond
       ((null? parse-tree) state)
-      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree ))))))
+      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree )))))))
 
 (define var-declaration?
   (lambda (expression)
@@ -84,7 +84,7 @@
   (lambda (var state)
     (if (contains? var (state-vars state))
 		state
-        (append-var (state-vars state) var))))
+        (append-var state var))))
 
 ;;helper method for appending item to end of list
 (define append-var
@@ -98,7 +98,7 @@
 	(cond
 	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
 	 ((eq? (getVariableValue state var) value) state)
-	 (else (cons (cons var (state-vars state)) (cons (cons value (state-vals state)) '()))))))
+	 (else (cons (cons var (state-vars state)) (cons value (state-vals state)))))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -112,7 +112,7 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons(cons value (state-vals state)) '()))))
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons value (state-vals state)))))
 ;;remove the variable from the list, then readd value with variable
 
 ;;takes state as input, returns matching variable value, assumes everything lined up
