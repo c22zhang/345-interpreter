@@ -30,8 +30,10 @@
     (cond
 	 ((null? parse-tree) state)
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+         ((and (assignment? (current-expression parse-tree)) (eq? (getVariableValue state (car (current-expression parse-tree)))#f)) (error "Using var before declared"))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
 	 ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_if (current-expression parse-tree) state)))
 	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
 	 (else (interpret-state (next-expressions parse-tree) state)))))
 
@@ -235,12 +237,7 @@
     (cond
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
-<<<<<<< HEAD
-         ((number? (operator e)) (m.value.int (operator e) state))   
-=======
 	 ((number? (operator e)) (m.value.int (operator e) state))
-	 ((atom? (operator e)) (m.value.int (operator e) state))
->>>>>>> dff3f614e83476137431166f78e323860206ff7a
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
          ((and (eq? '- (operator e)) (null? (cddr e))) (* -1 (m.value.int (operand1 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
