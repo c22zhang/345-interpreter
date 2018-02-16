@@ -30,7 +30,7 @@
     (cond
 	 ((null? parse-tree) state)
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
-         ((and (assignment? (current-expression parse-tree)) (eq? (getVariableValue state (car (current-expression parse-tree)))#f)) (error "Using var before declared"))
+         ((and (assignment? (current-expression parse-tree)) (eq? (getVariableValue state (car (current-expression parse-tree)))#f)) ((error "Using var before declared")))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
 	 ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
          ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_if (current-expression parse-tree) state)))
@@ -222,6 +222,22 @@
        (M_state_while e (M_state_stmt (then_stmt e) state))
 	   state)))
 
+(define boolean-operator?
+  (lambda (exp)
+    (cond
+      ((eq? 'true e) #t)
+      ((eq? 'false e) #t)
+      ((eq? '< e) #t)
+      ((eq? '> e) #t)
+      ((eq? '>= e) #t)
+      ((eq? '<= e) #t)
+      ((eq? '&& e) #t)
+      ((eq? '|| e) #t)
+      ((eq? '== e) #t)
+      ((eq? '!= e) #t)
+      ((eq? '! e) #t)
+      (else #f))))
+
 (define m.value.expr
   (lambda (e state)
     (cond
@@ -229,7 +245,7 @@
       ((number? e) (m.value.int e state))
       ((atom? e) (getVariableValue state e))
       ((list? (car e)) (m.value.expr (car e) state))
-      ((or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state))
+      ((and (not (boolean-operator? (operator e))) (or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state)))
       (else (boolean-wrapper (m.value.boolean e state))))))
         
 (define m.value.int
