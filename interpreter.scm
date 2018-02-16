@@ -5,8 +5,18 @@
 (load "simpleParser.scm")
 
 (define keyword car)
+(define current-expression car)
+(define next-expressions cdr)
 (define state-vars car)
 (define state-vals cadr)
+(define operator car)
+(define operand1 cadr)
+(define operand2 caddr)
+(define varName cadr)
+(define varValue cddr)
+
+
+;find a way to use this without code breaking
 (define init-state
   (lambda ()
     '(() ())))
@@ -19,9 +29,17 @@
   (lambda(parse-tree state)
     (cond
       ((null? parse-tree) state)
-      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree) state)))
-      ((assignment? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree) state)))
-      (else (interpret-state (cdr parse-tree) state)))))
+      ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+      ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+      ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
+      (else (interpret-state (next-expressions parse-tree) state)))))
+
+(define get-return-value
+  (lambda (expression state)
+    (if (return?  expression)
+                 (m.value.expr (cadr expression) state)
+                 (error 'badop "no return value"))))
+      
 
 (define var-declaration?
   (lambda (expression)
@@ -123,7 +141,7 @@
 (define getVariableValue
   (lambda (state var)
     (cond
-	 ((null? state) (error "Variable not declared"))
+	 ((or (null? (state-vars state)) (not (contains? var (state-vars state)))) (error "Variable not declared"))
 	 ((null? (state-vals state)) #f) ;;variable is initialized but not declared
 	 ((eq? (car (state-vars state)) var) (car (state-vals state)))
 	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
@@ -139,7 +157,7 @@
 ;;helper method that allows variables to be revalued 
 (define modifyVariableValue
   (lambda (var val state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons(cons val (modifyStateVals var (state-vars state) (state-vals state))) '()))))
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (cons (m.value.expr val state) (modifyStateVals var (state-vars state) (state-vals state))) '()))))
 
 ;;declare variable, or initialize variable
 (define M_state_declare
@@ -194,11 +212,12 @@
 (define m.value.expr
   (lambda (e state)
     (cond
-      ((null? e) (error 'badop "empty expression"))
-      ((list? (car e)) (m.value.expr (car e) state))
+      ((null? e) (error "empty expression"))
       ((number? e) (m.value.int e state))
+      ((atom? e) (getVariableValue state e))
+      ((list? (car e)) (m.value.expr (car e) state))
       ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
-      (else (m.value.boolean e state)))))
+      (else (boolean-wrapper (m.value.boolean e state))))))
         
 (define m.value.int
   (lambda (e state)
@@ -213,7 +232,7 @@
 	 ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 (else (error 'badop "undefined operator")))))
 
-										;expression evaluator for boolean/comparison operators/expressions
+;expression evaluator for boolean/comparison operators/expressions
 (define m.value.boolean
   (lambda (e state)
 	(cond
@@ -232,9 +251,11 @@
 	 ((eq? '!= (operator e)) (not (eq? (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state))))
 	 (else (error 'badop "undefined operator")))))
 
-(define operator car)
-(define operand1 cadr)
-(define operand2 caddr)
-(define varName cadr)
-(define varValue cddr)
+(define boolean-wrapper
+  (lambda (bool)
+    (cond
+      ((eq? #t bool) 'true)
+      ((eq? #f bool) 'false)
+      (else error "expected boolean"))))
+
 
