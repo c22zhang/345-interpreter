@@ -209,8 +209,8 @@
 (define if_only
   (lambda (e state)
     (if (m.value.boolean (cond_stmt e) state)
-         state
-	(M_state_stmt (then_stmt e) state))))
+	(M_state_stmt (then_stmt e) state)
+        state)))
 
 (define M_state_while
   (lambda (e state)
@@ -234,13 +234,14 @@
     (cond
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
-         ((number? (operator e)) (m.value.int (operator e) state))
-         ((atom? (operator e)) (m.value.int (operator e) state))
+         ((number? (operator e)) (m.value.int (operator e) state))   
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+         ((and (eq? '- (operator e)) (null? (cddr e))) (* -1 (m.value.int (operand1 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+         ((atom? (operator e)) (m.value.int (operator e) state))
 	 (else (error 'badop "undefined operator")))))
 
 ;expression evaluator for boolean/comparison operators/expressions
