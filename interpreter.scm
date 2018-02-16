@@ -42,6 +42,20 @@
 	 ((eq? 'return (keyword expression)) #t)
 	 (else #f))))
 
+(define if-statement?
+  (lambda (expression)
+	(cond
+	 ((null? expression) #f)
+	 ((eq? 'if (keyword expression)) #t)
+	 (else #f))))
+
+(define while-statement?
+  (lambda (expression)
+	(cond
+	 ((null? expression) #f)
+	 ((eq? 'while (keyword expression)) #t)
+	 (else #f))))
+
 (define arithmetic-operator?
   (lambda (op)
     (cond
@@ -55,9 +69,9 @@
 (define atom?
   (lambda (a)
     (cond
-      ((list? a) #f)
-      ((null? a) #f)
-      (else #t))))
+	 ((list? a) #f)
+	 ((null? a) #f)
+	 (else #t))))
 
 (define contains?
   (lambda (var state-var-list)
@@ -70,20 +84,19 @@
   (lambda (var state)
     (if (contains? var (state-vars state))
 		state
-        (appendList (state-vars state) var))))
+        (append-var (state-vars state) var))))
 
 ;;helper method for appending item to end of list
-(define appendList
+(define append-var
   (lambda (state var)
     (cond
       ((null? list) (cons val '()))
       (else (cons (append (car state) (cons var '())) (cdr state))))))
 
-
 (define store-variable-value-in-state
   (lambda (var value state)
 	(cond
-         ((eq? getVariableValue #f)(add-value-to-variable var value state))
+	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
 	 ((eq? (getVariableValue state var) value) state)
 	 (else (cons (cons var (state-vars state)) (cons (cons value (state-vals state)) '()))))))
 
@@ -91,17 +104,17 @@
 (define remove-variable-from-list
   (lambda (var lis)
     (cond
-    ((null? lis) '())
-    ((eq? (eq? (car lis) var) #f)
-     (cons (car lis) (remove-variable-from-list var (cdr lis))))
-    (else (cdr lis)))))
-    
+	 ((null? lis) '())
+	 ((eq? (eq? (car lis) var) #f)
+	  (cons (car lis) (remove-variable-from-list var (cdr lis))))
+	 (else (cdr lis)))))
+
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state)
     (cons (cons var (remove-variable-from-list var (state-vars state))) (cons(cons value (state-vals state)) '()))))
-      ;;remove the variable from the list, then readd value with variable
-    
+;;remove the variable from the list, then readd value with variable
+
 ;;takes state as input, returns matching variable value, assumes everything lined up
 (define getVariableValue
   (lambda (state var)
@@ -115,10 +128,10 @@
 (define modifyStateVals
   (lambda (var stateVars stateVals)
     (cond
-      ((null? stateVars) stateVals)
-      ((eq? (car stateVars) var) (cdr stateVals))
-      (else (cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
-      
+	 ((null? stateVars) stateVals)
+	 ((eq? (car stateVars) var) (cdr stateVals))
+	 (else (cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
+
 ;;helper method that allows variables to be revalued 
 (define modifyVariableValue
   (lambda (var val state)
@@ -128,7 +141,7 @@
 (define M_state_declare
   (lambda (e state)
 	(cond
-	 ((null? (varValue e)) (store-variable-in-state (varName e) state))
+	 ((null? (cddr e)) (store-variable-in-state (varName e) state))
 	 (else (store-variable-value-in-state (varName e) (varValue e) state)))))
 
 ;;assign value to variable if it exists
@@ -139,26 +152,60 @@
       ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
       ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
 
-;expression evaluator for arithmetic expressions
+;;determines proper method to call based on statement
+(define M_state_stmt
+  (lambda (e state)
+	(cond
+	 ((var-declaration? e) (M_state_declare e state))
+	 ((assignment? e) (M_state_assign e state) )
+	 ((return? e) (M_state_return e state))
+	 ((if-statement? e) (M_state_if_else e state))
+	 ((while-statement? e) (M_state_while e state)))))
+  
+(define cond_stmt cadr)
+(define then_stmt caddr)
+(define else_stmt cadddr)
+
+;;main if statement controller
+(define M_state_if
+  (lambda (e state)
+	(if(eq?(null? (cdddr e)) #f)
+	   (if_else e state)
+	   (if_only e state))))
+
+;;helper method for if else statements
+(define if_else
+  (lambda (e state)
+	(if(m.value.boolean (cond_stmt e) state)
+	   (M_state_stmt (then_stmt e) state)
+	   (M_state_stmt (else_stmt e) state))))
+
+
+;;helper method for if only statements
+(define if_only
+  (lambda (e state)
+	(if (m.value.boolean (cond_stmt e) state)
+		(M_state_stmt (then_stmt e) state))))
+
 (define m.value.int
   (lambda (e state)
     (cond
-      ((number? e) e)
-      ((atom? e) (getVariableValue state e))
-      ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-      ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-      ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-      ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-      ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
-      (else (error 'badop "undefined operator")))))
+	 ((number? e) e)
+	 ((atom? e) (getVariableValue state e))
+	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+	 ((eq? '/ (operator e)) (quotient (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+	 ((eq? '% (operator e)) (remainder (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
+	 (else (error 'badop "undefined operator")))))
 
-;expression evaluator for boolean/comparison operators/expressions
+										;expression evaluator for boolean/comparison operators/expressions
 (define m.value.boolean
   (lambda (e state)
 	(cond
 	 ((or (arithmetic-operator? e) (number? e)) (m.value.int e state))
-         ((atom? e) (m.value.int e state))
-         ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
+	 ((atom? e) (m.value.int e state))
+	 ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
 	 ((eq? 'true e) #t)
 	 ((eq? 'false e) #f)
 	 ((eq? '> (operator e)) (> (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
