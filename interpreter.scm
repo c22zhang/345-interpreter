@@ -210,8 +210,8 @@
 (define if_only
   (lambda (e state)
     (if (m.value.boolean (cond_stmt e) state)
-		state
-		(M_state_stmt (then_stmt e) state))))
+		(M_state_stmt (then_stmt e) state)
+		state)))
 
 (define M_state_while
   (lambda (e state)
@@ -222,13 +222,13 @@
 (define m.value.expr
   (lambda (e state)
     (cond
-	 ((null? e) (error "empty expression"))
-	 ((number? e) (m.value.int e state))
-	 ((atom? e) (getVariableValue state e))
-	 ((list? (car e)) (m.value.expr (car e) state))
-	 ((or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state))
-	 (else (boolean-wrapper (m.value.boolean e state))))))
-
+      ((null? e) (error "empty expression"))
+      ((number? e) (m.value.int e state))
+      ((atom? e) (getVariableValue state e))
+      ((list? (car e)) (m.value.expr (car e) state))
+      ((or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state))
+      (else (boolean-wrapper (m.value.boolean e state))))))
+        
 (define m.value.int
   (lambda (e state)
     (cond
