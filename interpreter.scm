@@ -141,7 +141,7 @@
 (define getVariableValue
   (lambda (state var)
     (cond
-	 ((or (null? (state-vars state)) (not (contains? var (state-vars state)))) (error "Variable not declared"))
+	 ((null? state) (error "Variable not declared"))
 	 ((null? (state-vals state)) #f) ;;variable is initialized but not declared
 	 ((eq? (car (state-vars state)) var) (car (state-vals state)))
 	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
@@ -180,7 +180,7 @@
 	(cond
 	 ((var-declaration? e) (M_state_declare e state))
 	 ((assignment? e) (M_state_assign e state) )
-	 ((return? e) (M_state_return e state))
+	 ((return? e) (get-return-value e state))
 	 ((if-statement? e) (M_state_if_else e state))
 	 ((while-statement? e) (M_state_while e state)))))
   
@@ -192,7 +192,7 @@
 (define M_state_if
   (lambda (e state)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if_else e state)
+	   (if_else e state) 
 	   (if_only e state))))
 
 ;;helper method for if else statements
@@ -206,8 +206,9 @@
 ;;helper method for if only statements
 (define if_only
   (lambda (e state)
-	(if (m.value.boolean (cond_stmt e) state)
-		(M_state_stmt (then_stmt e) state))))
+    (if (m.value.boolean (cond_stmt e) state)
+         state
+	(M_state_stmt (then_stmt e) state))))
 
 (define m.value.expr
   (lambda (e state)
