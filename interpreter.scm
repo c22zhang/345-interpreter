@@ -32,6 +32,7 @@
       ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
       ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
       ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
+      ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_if (current-expression parse-tree) state)))
       (else (interpret-state (next-expressions parse-tree) state)))))
 
 (define get-return-value
@@ -225,7 +226,7 @@
       ((number? e) (m.value.int e state))
       ((atom? e) (getVariableValue state e))
       ((list? (car e)) (m.value.expr (car e) state))
-      ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
+      ((or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state))
       (else (boolean-wrapper (m.value.boolean e state))))))
         
 (define m.value.int
@@ -234,6 +235,7 @@
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
          ((number? (operator e)) (m.value.int (operator e) state))
+         ((atom? (operator e)) (m.value.int (operator e) state))
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
