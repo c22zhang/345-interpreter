@@ -16,7 +16,7 @@
 (define varValue cddr)
 
 
-;find a way to use this without code breaking
+;;find a way to use this without code breaking
 (define init-state
   (lambda ()
     '(() ())))
@@ -28,19 +28,20 @@
 (define interpret-state
   (lambda(parse-tree state)
     (cond
-      ((null? parse-tree) state)
-      ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
-      ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
-      ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
-      ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_if (current-expression parse-tree) state)))
-      (else (interpret-state (next-expressions parse-tree) state)))))
+	 ((null? parse-tree) state)
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+	 ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+	 (else (interpret-state (next-expressions parse-tree) state)))))
+
 
 (define get-return-value
   (lambda (expression state)
     (if (return?  expression)
-                 (m.value.expr (cadr expression) state)
-                 (error 'badop "no return value"))))
-      
+		(m.value.expr (cadr expression) state)
+		(error 'badop "no return value"))))
+
 
 (define var-declaration?
   (lambda (expression)
@@ -111,15 +112,15 @@
 (define append-var
   (lambda (state var)
     (cond
-      ((null? list) (cons val '()))
-      (else (cons (append (car state) (cons var '())) (cdr state))))))
+	 ((null? list) (cons val '()))
+	 (else (cons (append (car state) (cons var '())) (cdr state))))))
 
 (define store-variable-value-in-state
   (lambda (var value state)
 	(cond
 	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
 	 ((eq? (getVariableValue state var) value) state)
-         ;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
+	 ;;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
 	 (else (cons (cons var (state-vars state)) (cons (append (cons (m.value.expr value state) '()) (state-vals state)) '()))))))
 
 ;;helper function for add-value-to-variable
@@ -134,7 +135,7 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state)
-    ;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
+	;;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
     (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m.value.expr value state) '()) (state-vals state)) '()))))
 ;;remove the variable from the list, then readd value with variable
 
@@ -171,21 +172,21 @@
 (define M_state_assign
   (lambda (e state)
     (cond
-      ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
-      ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
-      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
+	 ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
+	 ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
+	 ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
 
 ;;determines proper method to call based on statement
 (define M_state_stmt
   (lambda (e state)
 	(cond
-         ((arithmetic-operator? (car e)) (M_state_assign e state))
+	 ((arithmetic-operator? (car e)) (M_state_assign e state))
 	 ((var-declaration? e) (M_state_declare e state))
 	 ((assignment? e) (M_state_assign e state) )
 	 ((return? e) (get-return-value e state))
 	 ((if-statement? e) (M_state_if_else e state))
 	 ((while-statement? e) (M_state_while e state)))))
-  
+
 (define cond_stmt cadr)
 (define then_stmt caddr)
 (define else_stmt cadddr)
@@ -212,13 +213,13 @@
 	(M_state_stmt (then_stmt e) state)
         state)))
 
+
 (define M_state_while
   (lambda (e state)
     (if(m.value.boolean (cond_stmt e) state)
-       (M_state_stmt e (M_state_while e state))
-       state)))
-          
-          
+       (M_state_while e (M_state_stmt (then_stmt e) state))
+	   state)))
+
 (define m.value.expr
   (lambda (e state)
     (cond
@@ -234,7 +235,12 @@
     (cond
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
+<<<<<<< HEAD
          ((number? (operator e)) (m.value.int (operator e) state))   
+=======
+	 ((number? (operator e)) (m.value.int (operator e) state))
+	 ((atom? (operator e)) (m.value.int (operator e) state))
+>>>>>>> dff3f614e83476137431166f78e323860206ff7a
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
          ((and (eq? '- (operator e)) (null? (cddr e))) (* -1 (m.value.int (operand1 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
@@ -244,12 +250,12 @@
          ((atom? (operator e)) (m.value.int (operator e) state))
 	 (else (error 'badop "undefined operator")))))
 
-;expression evaluator for boolean/comparison operators/expressions
+;;expression evaluator for boolean/comparison operators/expressions
 (define m.value.boolean
   (lambda (e state)
 	(cond
 	 ((or (arithmetic-operator? e) (number? e)) (m.value.int e state))
-         ((eq? 'true e) #t)
+	 ((eq? 'true e) #t)
 	 ((eq? 'false e) #f)
 	 ((atom? e) (m.value.int e state))
 	 ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))	 
@@ -266,8 +272,8 @@
 (define boolean-wrapper
   (lambda (bool)
     (cond
-      ((eq? #t bool) 'true)
-      ((eq? #f bool) 'false)
-      (else error "expected boolean"))))
+	 ((eq? #t bool) 'true)
+	 ((eq? #f bool) 'false)
+	 (else error "expected boolean"))))
 
 
