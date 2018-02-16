@@ -35,6 +35,7 @@
 	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
 	 (else (interpret-state (next-expressions parse-tree) state)))))
 
+
 (define get-return-value
   (lambda (expression state)
     (if (return?  expression)
@@ -142,7 +143,7 @@
 (define getVariableValue
   (lambda (state var)
     (cond
-	 ((or (null? (state-vars state)) (not (contains? var (state-vars state)))) (error "Variable not declared"))
+	 ((null? state) (error "Variable not declared"))
 	 ((null? (state-vals state)) #f) ;;variable is initialized but not declared
 	 ((eq? (car (state-vars state)) var) (car (state-vals state)))
 	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
@@ -194,7 +195,7 @@
 (define M_state_if
   (lambda (e state)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if_else e state)
+	   (if_else e state) 
 	   (if_only e state))))
 
 ;;helper method for if else statements
@@ -208,7 +209,8 @@
 ;;helper method for if only statements
 (define if_only
   (lambda (e state)
-	(if (m.value.boolean (cond_stmt e) state)
+    (if (m.value.boolean (cond_stmt e) state)
+		state
 		(M_state_stmt (then_stmt e) state))))
 
 (define M_state_while
@@ -224,7 +226,7 @@
 	 ((number? e) (m.value.int e state))
 	 ((atom? e) (getVariableValue state e))
 	 ((list? (car e)) (m.value.expr (car e) state))
-	 ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
+	 ((or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m.value.int e state))
 	 (else (boolean-wrapper (m.value.boolean e state))))))
 
 (define m.value.int
@@ -233,6 +235,7 @@
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
 	 ((number? (operator e)) (m.value.int (operator e) state))
+	 ((atom? (operator e)) (m.value.int (operator e) state))
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
