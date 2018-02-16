@@ -98,7 +98,8 @@
 	(cond
 	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
 	 ((eq? (getVariableValue state var) value) state)
-	 (else (cons (cons var (state-vars state)) (cons value (state-vals state)))))))
+         ;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
+	 (else (cons (cons var (state-vars state)) (cons (append (cons (m.value.expr value state) '()) (state-vals state)) '()))))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -112,7 +113,8 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons value (state-vals state)))))
+    ;CLEAN THIS UP LATER - BUT WORKS FOR NOW ============
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m.value.expr value state) '()) (state-vals state)) '()))))
 ;;remove the variable from the list, then readd value with variable
 
 ;;takes state as input, returns matching variable value, assumes everything lined up
@@ -187,11 +189,21 @@
 	(if (m.value.boolean (cond_stmt e) state)
 		(M_state_stmt (then_stmt e) state))))
 
+(define m.value.expr
+  (lambda (e state)
+    (cond
+      ((null? e) (error 'badop "empty expression"))
+      ((list? (car e)) (m.value.expr (car e) state))
+      ((number? e) (m.value.int e state))
+      ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
+      (else (m.value.boolean e state)))))
+        
 (define m.value.int
   (lambda (e state)
     (cond
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
+         ((number? (operator e)) (m.value.int (operator e) state))
 	 ((eq? '+ (operator e)) (+ (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '- (operator e)) (- (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
 	 ((eq? '* (operator e)) (* (m.value.int (operand1 e) state) (m.value.int(operand2 e) state)))
@@ -204,10 +216,10 @@
   (lambda (e state)
 	(cond
 	 ((or (arithmetic-operator? e) (number? e)) (m.value.int e state))
-	 ((atom? e) (m.value.int e state))
-	 ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))
-	 ((eq? 'true e) #t)
+         ((eq? 'true e) #t)
 	 ((eq? 'false e) #f)
+	 ((atom? e) (m.value.int e state))
+	 ((or (arithmetic-operator? (operator e)) (number? (operator e))) (m.value.int e state))	 
 	 ((eq? '> (operator e)) (> (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
 	 ((eq? '>= (operator e)) (>= (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
 	 ((eq? '< (operator e)) (< (m.value.boolean(operand1 e) state) (m.value.boolean(operand2 e) state)))
