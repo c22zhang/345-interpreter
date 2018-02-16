@@ -152,7 +152,7 @@
     (cond
       ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
       ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
-      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
+      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
 
 ;;determines proper method to call based on statement
 (define M_state_stmt
