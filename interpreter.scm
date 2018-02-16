@@ -13,13 +13,15 @@
 
 (define interpret
   (lambda (filename)
-    (parser filename)))
+    (interpret-state (parser filename) '(()()) )))
 
 (define interpret-state
   (lambda(parse-tree state)
     (cond
       ((null? parse-tree) state)
-      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree )))))))
+      ((var-declaration? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree) state)))
+      ((assignment? (car parse-tree)) (interpret-state (cdr parse-tree) (M_state_declare (car parse-tree) state)))
+      (else (interpret-state (cdr parse-tree) state)))))
 
 (define var-declaration?
   (lambda (expression)
@@ -152,7 +154,7 @@
     (cond
       ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
       ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
-      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (varValue e) state)))))
+      ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
 
 ;;determines proper method to call based on statement
 (define M_state_stmt
