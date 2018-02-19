@@ -178,7 +178,7 @@
 
 (define variable?
   (lambda (varName)
-    (if (and(eq?(number? (car varName))#f) (eq?(boolean-operator? (car varName))#f))
+    (if (and(eq?(number? varName)#f) (eq?(boolean-operator?  varName)#f))
         #t
         #f)))
      
@@ -187,10 +187,6 @@
   (lambda (e state)
     (cond
 	 ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
-         ;;if assignment value is another variable, check to make sure variable is defined
-     ;;    ((and (and(eq?(number?(varValue e))#f) (eq?(boolean-operator?(varValue e))#f)) (eq?(var-exist-in-state? (varValue e)(state-vars state))#f))
-     ;;     (error "value has not been declared")
-       ;;  ((and (eq? (variable? (varValue e))#t) (eq?(getVariableValue state (varValue e)) #f)) (error "Value not declared"))
 	 ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
 	 ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
 
@@ -266,6 +262,9 @@
         
 (define m.value.int
   (lambda (e state)
+    (if (and (eq? (list? e)#f) (boolean-operator? e))
+          (if (and (variable? e) (eq?(getVariableValue state e)#f))
+              (error "Value undeclared")))
     (cond
 	 ((number? e) e)
 	 ((atom? e) (getVariableValue state e))
