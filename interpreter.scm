@@ -30,11 +30,10 @@
     (cond
 	 ((null? parse-tree) state)
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
-         ((and (assignment? (current-expression parse-tree)) (eq? (getVariableValue state (car (current-expression parse-tree)))#f)) ((error "Using var before declared")))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_assign (current-expression parse-tree) state)))
 	 ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
          ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_if (current-expression parse-tree) state)))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_declare (current-expression parse-tree) state)))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M_state_while (current-expression parse-tree) state)))
 	 (else (interpret-state (next-expressions parse-tree) state)))))
 
 
@@ -170,11 +169,28 @@
 	 ((null? (cddr e)) (store-variable-in-state (varName e) state))
 	 (else (store-variable-value-in-state (varName e) (varValue e) state)))))
 
+(define var-exist-in-state?
+  (lambda (varName stateVars)
+    (cond
+      ((null? stateVars) #f)
+      ((eq?(car stateVars) varName) #t)
+      (else (var-exist-in-state? varName (cdr stateVars))))))
+
+(define variable?
+  (lambda (varName)
+    (if (and(eq?(number? (car varName))#f) (eq?(boolean-operator? (car varName))#f))
+        #t
+        #f)))
+     
 ;;assign value to variable if it exists
 (define M_state_assign
   (lambda (e state)
     (cond
 	 ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared"))
+         ;;if assignment value is another variable, check to make sure variable is defined
+     ;;    ((and (and(eq?(number?(varValue e))#f) (eq?(boolean-operator?(varValue e))#f)) (eq?(var-exist-in-state? (varValue e)(state-vars state))#f))
+     ;;     (error "value has not been declared")
+       ;;  ((and (eq? (variable? (varValue e))#t) (eq?(getVariableValue state (varValue e)) #f)) (error "Value not declared"))
 	 ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
 	 ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
 
