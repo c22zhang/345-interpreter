@@ -1,0 +1,13 @@
+Modify:
+-store-variable-value-in-state
+-add-value-to-variable
+-getVariableValue
+-contains?
+-append-var
+-store-variable-in-state
+-modifyStateVals
+-modifyVariableValue
+-var-exist-in-state
+-M_state functions
+
+Completed:
