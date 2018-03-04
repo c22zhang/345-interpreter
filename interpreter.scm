@@ -114,9 +114,96 @@
 (define contains?
   (lambda (var state-var-list)
     (cond
-	 ((null? state-var-list) #f)
-	 ((eq? var (car state-var-list)) #t)
-	 (else (contains? var (cdr state-var-list))))))
+      ((null? state-var-list) #f)
+      ((eq? var (car state-var-list)) #t)
+      (else (contains? var (cdr state-var-list))))))
+
+(define block?
+  (lambda (expr)
+	(cond
+	 ((null? expr) #f)
+	 ((eq? 'begin (keyword expr)) #t)
+	 (else #f))))
+
+					
+;stores the variable in the state
+(define store-variable-in-state
+  (lambda (var state)
+    (if (contains? var (state-vars state))
+        state
+        (append-var state var))))
+
+;;helper method for appending item to end of list
+(define append-var
+  (lambda (state var)
+    (cond
+      ((null? list) (cons val '()))
+      (else (cons (append (car state) (cons var '())) (cdr state))))))
+
+;stores the value associated with the variable in the sate
+(define store-variable-value-in-state
+  (lambda (var value state)
+    (cond
+      ((eq? getVariableValue #f)(add-value-to-variable var value state))
+      ((eq? (getVariableValue state var) value) state)
+      (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
+
+;;helper function for add-value-to-variable
+(define remove-variable-from-list
+  (lambda (var lis)
+    (cond
+      ((null? lis) '())
+      ((eq? (eq? (car lis) var) #f)
+       (cons (car lis) (remove-variable-from-list var (cdr lis))))
+      (else (cdr lis)))))
+
+;;adds value to variable if it already exists but uninitialized in state
+(define add-value-to-variable
+  (lambda (var value state)
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+;;remove the variable from the list, then readd value with variable
+
+;;takes state as input, returns matching variable value, assumes everything lined up
+(define getVariableValue
+  (lambda (state var)
+    (cond
+      ((null? state) (error "Variable not declared"))
+      ((null? (state-vals state)) #f) ;;variable is initialized but not declared
+      ((eq? (car (state-vars state)) var) (car (state-vals state)))
+      ((and (list? var) (eq? (car (state-vars state)) (car var))) (car (state-vals state)))
+      (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
+
+;;returns stateVals with deleted variable value
+(define modifyStateVals
+  (lambda (var stateVars stateVals)
+    (cond
+      ((null? stateVars) stateVals)
+      ((eq? (car stateVars) var) (cdr stateVals))
+      (else (cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
+
+;;helper method that allows variables to be revalued 
+(define modifyVariableValue
+  (lambda (var val state)
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (cons (m-value-expr val state) (modifyStateVals var (state-vars state) (state-vals state))) '()))))
+
+;;add layer to state
+;;param newLayer is a state in form '((a b) (1 2))
+(define addLayer
+  (lambda (newLayer state)
+    (cond
+      ((list? (car (state-vars state))) (cons (cons (state-vars newLayer) (state-vars state)) (cons (cons (state-vals newLayer) (state-vals state)) '())))
+       (else (cons (cons (state-vars newLayer) (cons (state-vars state) '()))
+		  (cons (cons (state-vals newLayer) (cons (state-vals state) '())) '()))))))
+
+;;helper function for removeTopLayer
+(define removeTopLayer-cps
+  (lambda (state return)
+    (return (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())))))
+	
+;;removes topmost layer from state
+(define removeTopLayer
+  (lambda (state)
+	(removeTopLayer-cps state (lambda (v) v))))
 
 ;;declare variable, or initialize variable
 (define M-state-declare
@@ -247,6 +334,12 @@
          ((and (list? var) (eq? (car (state-vars state)) (car var))) (return-cont (car (state-vals state))))
 	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var return-cont)))))
 
+;;block statements
+(define M-state-block
+  (lambda (e state)
+	(cond
+	 (
+	  
 ;;determines proper method to call based on statement
 (define M-state-stmt
   (lambda (e state)
