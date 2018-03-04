@@ -274,7 +274,7 @@
 ;;removes topmost layer from state
 (define removeTopLayer
   (lambda (state)
-	(removeTopLayer-cps state (lambda (v) v))))
+	(removeTopLayer-cps state default-continuation)))
 
 ;;add layer to state
 ;;param newLayer is a state in form '((a b) (1 2))
@@ -342,36 +342,36 @@
 	  
 ;;determines proper method to call based on statement
 (define M-state-stmt
-  (lambda (e state)
+  (lambda (e state return-cont)
 	(cond
-	 ((arithmetic-operator? (car e)) (M-state-assign e state))
-	 ((var-declaration? e) (M-state-declare e state))
-	 ((assignment? e) (M-state-assign e state) )
-	 ((return? e) (get-return-value e state))
+	 ((arithmetic-operator? (car e)) (M-state-assign e state return-cont))
+	 ((var-declaration? e) (M-state-declare e state return-cont))
+	 ((assignment? e) (M-state-assign e state return-cont) )
+	 ((return? e) (return-cont (get-return-value e state)))
 	 ((if-statement? e) (M-state-if-else e state))
 	 ((while-statement? e) (M-state-while e state)))))
 
 ;;main if statement controller
 (define M-state-if
-  (lambda (e state)
+  (lambda (e state return-cont)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if-else e state) 
-	   (if-only e state))))
+	   (if-else e state return-cont) 
+	   (if-only e state return-cont))))
 
 ;;helper method for if else statements
 (define if-else
-  (lambda (e state)
+  (lambda (e state return-cont)
 	(if(m-value-boolean (cond-stmt e) state)
-	   (M-state-stmt (then-stmt e) state)
-	   (M-state-stmt (else-stmt e) state))))
+	   (M-state-stmt (then-stmt e) state return-cont)
+	   (M-state-stmt (else-stmt e) state return-cont))))
 
 
 ;;helper method for if only statements
 (define if-only
-  (lambda (e state)
+  (lambda (e state return-cont)
     (if (m-value-boolean (cond-stmt e) state)
-	(M-state-stmt (then-stmt e) state)
-        state)))
+	(M-state-stmt (then-stmt e) state return-cont)
+        (return-cont state))))
 
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
