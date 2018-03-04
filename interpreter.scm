@@ -26,19 +26,21 @@
 ;top level interpreter that takes in the file name
 (define interpret
   (lambda (filename)
-    (interpret-state (parser filename) init-state )))
+    (call/cc
+     (lambda (return)
+       (interpret-state (parser filename) init-state return)))))
 
 ;interpreter to interpret all individual statements returned by the parser
 (define interpret-state
-  (lambda(parse-tree state)
+  (lambda (parse-tree state return)
     (cond
 	 ((null? parse-tree) state)
-	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state)))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state)))
-	 ((return? (current-expression parse-tree)) (get-return-value (current-expression parse-tree) state))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state)))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state)))
-	 (else (interpret-state (next-expressions parse-tree) state)))))
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state) return))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state) return))
+	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state) return))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state) return))
+	 (else (interpret-state (next-expressions parse-tree) state return)))))
 
 ;finds the return value associated with a return statement
 (define get-return-value
@@ -114,28 +116,6 @@
 	 ((eq? var (car state-var-list)) #t)
 	 (else (contains? var (cdr state-var-list))))))
 
-;stores the variable in the state
-(define store-variable-in-state
-  (lambda (var state)
-    (if (contains? var (state-vars state))
-		state
-        (append-var state var))))
-
-;;helper method for appending item to end of list
-(define append-var
-  (lambda (state var)
-    (cond
-	 ((null? list) (cons val '()))
-	 (else (cons (append (car state) (cons var '())) (cdr state))))))
-
-;stores the value associated with the variable in the sate
-(define store-variable-value-in-state
-  (lambda (var value state)
-	(cond
-	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
-	 ((eq? (getVariableValue state var) value) state)
-	 (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
-
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
   (lambda (var lis)
@@ -176,10 +156,32 @@
 
 ;;declare variable, or initialize variable
 (define M-state-declare
-  (lambda (e state)
+  (lambda (e state return-cont)
 	(cond
-	 ((null? (cddr e)) (store-variable-in-state (varName e) state))
+	 ((null? (cddr e)) (return-cont (store-variable-in-state (varName e) state return-cont)))
 	 (else (store-variable-value-in-state (varName e) (varValue e) state)))))
+
+;stores the variable in the state
+(define store-variable-in-state
+  (lambda (var state return-cont)
+    (if (contains? var (state-vars state))
+	(return-cont state)
+        (append-var state var))))
+
+;stores the value associated with the variable in the sate
+(define store-variable-value-in-state
+  (lambda (var value state)
+	(cond
+	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
+	 ((eq? (getVariableValue state var) value) state)
+	 (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
+
+;;helper method for appending item to end of list
+(define append-var
+  (lambda (state var return-cont)
+    (cond
+	 ((null? list) (cons val '()))
+	 (else (cons (append (car state) (cons var '())) (cdr state))))))
 
 ;returns true if the variable exists in the state
 (define var-exist-in-state?
