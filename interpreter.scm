@@ -22,6 +22,8 @@
 
 ;binding for initial state
 (define init-state '(() ()))
+;default return continuation
+(define default-continuation (lambda (v) v))
 
 ;top level interpreter that takes in the file name
 (define interpret
@@ -35,8 +37,8 @@
   (lambda (parse-tree state return)
     (cond
 	 ((null? parse-tree) state)
-	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state) return))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state) return))
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
          ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state) return))
 	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state) return))
@@ -116,44 +118,6 @@
 	 ((eq? var (car state-var-list)) #t)
 	 (else (contains? var (cdr state-var-list))))))
 
-;;helper function for add-value-to-variable
-(define remove-variable-from-list
-  (lambda (var lis)
-    (cond
-	 ((null? lis) '())
-	 ((eq? (eq? (car lis) var) #f)
-	  (cons (car lis) (remove-variable-from-list var (cdr lis))))
-	 (else (cdr lis)))))
-
-;;adds value to variable if it already exists but uninitialized in state
-(define add-value-to-variable
-  (lambda (var value state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
-;;remove the variable from the list, then readd value with variable
-
-;;takes state as input, returns matching variable value, assumes everything lined up
-(define getVariableValue
-  (lambda (state var)
-    (cond
-	 ((null? state) (error "Variable not declared"))
-	 ((null? (state-vals state)) #f) ;;variable is initialized but not declared
-	 ((eq? (car (state-vars state)) var) (car (state-vals state)))
-         ((and (list? var) (eq? (car (state-vars state)) (car var))) (car (state-vals state)))
-	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var)))))
-
-;;returns stateVals with deleted variable value
-(define modifyStateVals
-  (lambda (var stateVars stateVals)
-    (cond
-	 ((null? stateVars) stateVals)
-	 ((eq? (car stateVars) var) (cdr stateVals))
-	 (else (cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
-
-;;helper method that allows variables to be revalued 
-(define modifyVariableValue
-  (lambda (var val state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (cons (m-value-expr val state) (modifyStateVals var (state-vars state) (state-vals state))) '()))))
-
 ;;declare variable, or initialize variable
 (define M-state-declare
   (lambda (e state return-cont)
@@ -173,15 +137,15 @@
   (lambda (var value state)
 	(cond
 	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
-	 ((eq? (getVariableValue state var) value) state)
+	 ((eq? (getVariableValue state var default-continuation) value) state)
 	 (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
 
 ;;helper method for appending item to end of list
 (define append-var
   (lambda (state var return-cont)
     (cond
-	 ((null? list) (cons val '()))
-	 (else (cons (append (car state) (cons var '())) (cdr state))))))
+	 ((null? list) (return-cont (cons val '())))
+	 (else (return-cont (cons (append (car state) (cons var '())) (cdr state)))))))
 
 ;returns true if the variable exists in the state
 (define var-exist-in-state?
@@ -207,14 +171,81 @@
       ((number? e) #t)
       ((and (list? e) (or (boolean-operator? (operator e)) (arithmetic-operator? (operator e)))) #t)
       (else #f))))
+
+(define startBlock?
+  (lambda (expr)
+	(cond
+	 ((null? expr) #f)
+	 ((eq? '= (keyword expr)) #t)
+	 (else #f))))
+
+;;helper function for removeTopLayer
+(define removeTopLayer-cps
+  (lambda (state return)
+    (return (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())))))
+	
+;;removes topmost layer from state
+(define removeTopLayer
+  (lambda (state)
+	(removeTopLayer-cps state (lambda (v) v))))
+
+;;add layer to state
+;;param newLayer is a state in form '((a b) (1 2))
+(define addLayer
+  (lambda (newLayer state)
+    (cond
+      ((list? (car (state-vars state))) (cons (cons (state-vars newLayer) (state-vars state)) (cons (cons (state-vals newLayer) (state-vals state)) '())))
+       (else (cons (cons (state-vars newLayer) (cons (state-vars state) '()))
+		  (cons (cons (state-vals newLayer) (cons (state-vals state) '())) '()))))))
+
      
 ;;assign value to variable if it exists
 (define M-state-assign
-  (lambda (e state)
+  (lambda (e state return-cont)
     (cond
-	 ((eq?(contains? (varName e) (state-vars state)) #f) (error "variable not declared")) 
-	 ((eq?(getVariableValue state (varName e))#f) (add-value-to-variable (varName e) (varValue e) state))
-	 ((eq?(eq?(getVariableValue state (varName e)) (varValue e))#f) (modifyVariableValue (varName e) (caddr e) state)))))
+	 ((eq?(contains? (varName e) (state-vars state)) #f) (return-cont (error "variable not declared"))) 
+	 ((eq?(getVariableValue state (varName e) return-cont) #f) (add-value-to-variable (varName e) (varValue e) state return-cont))
+	 ((eq?(eq?(getVariableValue state (varName e) return-cont) (varValue e)) #f) (modifyVariableValue (varName e) (caddr e) state return-cont)))))
+
+;;helper function for add-value-to-variable
+(define remove-variable-from-list
+  (lambda (var lis return-cont)
+    (cond
+	 ((null? lis) (return-cont '()))
+	 ((eq? (eq? (car lis) var) #f) (remove-variable-from-list var (cdr lis) (lambda (v) (return-cont (cons (car lis) v)))))
+	  ;(cons (car lis) (remove-variable-from-list var (cdr lis))))
+	 (else (return-cont (cdr lis))))))
+
+;;adds value to variable if it already exists but uninitialized in state
+(define add-value-to-variable
+  (lambda (var value state return-cont)
+    (cons (cons var (remove-variable-from-list var (state-vars state) return-cont)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+;;remove the variable from the list, then readd value with variable
+
+;;helper method that allows variables to be revalued 
+(define modifyVariableValue
+  (lambda (var val state return-cont)
+    (return-cont (cons (cons var (remove-variable-from-list var (state-vars state) return-cont))
+          (cons (cons (m-value-expr val state) (modifyStateVals var (state-vars state) (state-vals state) return-cont)) '())))))
+
+;;returns stateVals with deleted variable value
+(define modifyStateVals
+  (lambda (var stateVars stateVals return-cont)
+    (cond
+	 ((null? stateVars) (return-cont stateVals))
+	 ((eq? (car stateVars) var) (return-cont (cdr stateVals)))
+	 (else (modifyStateVals var (cdr stateVars) (cdr stateVals) (lambda (v) (return-cont (cons (car stateVals) v))))))))
+          ;(cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
+
+;;takes state as input, returns matching variable value, assumes everything lined up
+(define getVariableValue
+  (lambda (state var return-cont)
+    (cond
+	 ((null? state) (return-cont (error "Variable not declared")))
+	 ((null? (state-vals state)) (return-cont #f)) ;;variable is initialized but not declared
+	 ((eq? (car (state-vars state)) var) (return-cont (car (state-vals state))))
+         ((and (list? var) (eq? (car (state-vars state)) (car var))) (return-cont (car (state-vals state))))
+	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var return-cont)))))
 
 ;;determines proper method to call based on statement
 (define M-state-stmt
@@ -279,7 +310,7 @@
     (cond
       ((null? e) (error "empty expression"))
       ((number? e) (m-value-int e state))
-      ((atom? e) (getVariableValue state e))
+      ((atom? e) (getVariableValue state e default-continuation))
       ((list? (car e)) (m-value-expr (car e) state))
       ((and (not (boolean-operator? (operator e))) (or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m-value-int e state)))
       (else (boolean-wrapper (m-value-boolean e state))))))
@@ -288,12 +319,12 @@
 (define m-value-int
   (lambda (e state)
     (if (and (eq? (list? e)#f) (boolean-operator? e))
-          (if (and (variable? e) (eq?(getVariableValue state e)#f))
+          (if (and (variable? e) (eq?(getVariableValue state e default-continuation)#f))
               (error "Value undeclared")))
     (cond
 	 ((number? e) e)
-         ((and (atom? e) (eq? (getVariableValue state e) #f)) (error "no value for variable"))
-	 ((atom? e) (getVariableValue state e))
+         ((and (atom? e) (eq? (getVariableValue state e default-continuation) #f)) (error "no value for variable"))
+	 ((atom? e) (getVariableValue state e default-continuation))
 	 ((number? (operator e)) (m-value-int (operator e) state))
 	 ((eq? '+ (operator e)) (+ (m-value-int (operand1 e) state) (m-value-int(operand2 e) state)))
          ((and (eq? '- (operator e)) (null? (cddr e))) (* -1 (m-value-int (operand1 e) state)))
