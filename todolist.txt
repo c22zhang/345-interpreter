@@ -11,3 +11,4 @@ Modify:
 -M_state functions
 
 Completed:
+-M-state functions should work with a return continuation i passed in -- not sure if it's completely tail recursive but probably more tail recursive then it was
