@@ -1,8 +1,9 @@
 ;;Chris Zhang
 ;;Jeremy Chan
-;;EECS 345 Interpreter project, part 1 
+;;EECS 345 Interpreter project, part 1
+;;written in Scheme/Pretty Big
 
-(load "simpleParser-scm")
+(load "simpleParser.scm")
 
 ;bindings for specific keywords
 (define keyword car)
