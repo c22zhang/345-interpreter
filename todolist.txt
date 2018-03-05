@@ -4,13 +4,14 @@ TODO:
 Modify:
 -add-value-to-variable
 -append-var
--store-variable-in-state
 -modifyStateVals
 -modifyVariableValue
 -var-exist-in-state
 -M_state functions
 
-Completed:
+Completed
+-M-state-declare should be fine
+-store-variable-in-state should work for layered lists:
 -store-variable-value-in-state should work hopefully maybe
 -getVariableValue --follow this method for how to modify other methods
 -contains-helper?(ok emacs search function sucks so i didnt realize it was already done and i'm too lazy to change whats already there)

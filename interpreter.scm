@@ -209,24 +209,24 @@
   (lambda (e state return-cont)
 	(cond
 	 ((null? (cddr e)) (return-cont (store-variable-in-state (varName e) state return-cont)))
-	 (else (store-variable-value-in-state (varName e) (varValue e) state return-cont)))))
+	 (else (return-cont (store-variable-value-in-state (varName e) (varValue e) state return-cont))))))
 
 ;stores the variable in the state
 (define store-variable-in-state
   (lambda (var state return-cont)
-    (if (contains? var (state-vars state))
+    (if (contains? var (state-vars (top-state state)))
 	(return-cont state)
-        (append-var state var return-cont))))
+        (return-cont (cons (append-var (top-state state) var return-cont) (cdr state))))))
 
 (define top-state car)
 
-;stores the value associated with the variable in the sate
+;stores the value associated with the variable in the state
 (define store-variable-value-in-state
   (lambda (var value state return-cont)
 	(cond
-         ((eq? (contains-helper? (car (top-state state)) var) #f) (cons (top-state state) (store-variable-value-in-state var value (cdr state) return-cont)))
 	 ((eq? (getVariableValue state var return-cont) #f) (return-cont (cons (add-value-to-variable var value (top-state state) return-cont) (cdr state))))
 	 ((eq? (getVariableValue state var default-continuation) value) (return-cont state))
+         ((eq? (contains-helper? (car (top-state state)) var) #f) (cons (top-state state) (store-variable-value-in-state var value (cdr state) return-cont)))
 	 (else (cons (cons var (state-vars (top-state state))) (return-cont (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '())))))))
 
 ;;helper method for appending item to end of list
@@ -295,7 +295,12 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state return-cont)
-    (cons (cons var (remove-variable-from-list var (state-vars state) return-cont)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+    ;(cond   
+      ;((contains-helper? (state-vars state) var)
+      (cons (cons var (remove-variable-from-list var (state-vars state) return-cont))
+                                                      (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+      ;(else (cons stat
+  
 ;;remove the variable from the list, then readd value with variable
 
 ;;helper method that allows variables to be revalued 
