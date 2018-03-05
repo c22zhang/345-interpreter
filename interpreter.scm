@@ -153,6 +153,12 @@
 	 ((eq? 'begin (keyword expr)) #t)
 	 (else #f))))
 
+(define startBlock?
+  (lambda (expr)
+	(cond
+	 ((null? expr) #f)
+	 ((eq? '= (keyword expr)) #t)
+	 (else #f))))
 					
 ;stores the variable in the state
 (define store-variable-in-state
@@ -167,14 +173,6 @@
     (cond
       ((null? list) (cons val '()))
       (else (cons (append (car state) (cons var '())) (cdr state))))))
-
-;stores the value associated with the variable in the sate
-(define store-variable-value-in-state
-  (lambda (var value state)
-    (cond
-      ((eq? getVariableValue #f)(add-value-to-variable var value state))
-      ((eq? (getVariableValue state var) value) state)
-      (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -220,13 +218,15 @@
 	(return-cont state)
         (append-var state var return-cont))))
 
+(define top-state car)
+
 ;stores the value associated with the variable in the sate
 (define store-variable-value-in-state
   (lambda (var value state)
 	(cond
-	 ((eq? getVariableValue #f)(add-value-to-variable var value state))
+	 ((eq? (getVariableValue state var default-continuation) #f) (cons (add-value-to-variable var value (top-state state) default-continuation) (cdr state)))
 	 ((eq? (getVariableValue state var default-continuation) value) state)
-	 (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
+	 (else (cons (cons var (state-vars (top-state state))) (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '()))))))
 
 ;;helper method for appending item to end of list
 (define append-var
@@ -260,14 +260,7 @@
       ((and (list? e) (or (boolean-operator? (operator e)) (arithmetic-operator? (operator e)))) #t)
       (else #f))))
 
-(define startBlock?
-  (lambda (expr)
-	(cond
-	 ((null? expr) #f)
-	 ((eq? '= (keyword expr)) #t)
-	 (else #f))))
 
-     
 ;;assign value to variable if it exists
 (define M-state-assign
   (lambda (e state return-cont)
@@ -323,7 +316,7 @@
 (define getVariableValue
   (lambda (state var return)
 	(cond
-	 ((null? state) (return (error "Variable not declared")))
+	 ((null? state) (return #f))
 	 ((list? (layerVars state))
 	  (if (contains-helper? (layerVars state) var)
 		  (return (getVariableValue-cps (layer state) var return))
