@@ -40,8 +40,8 @@
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state) return))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state) return))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation) return))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation) return))
 	 (else (interpret-state (next-expressions parse-tree) state return)))))
 
 ;finds the return value associated with a return statement
@@ -190,7 +190,7 @@
   (lambda (var state return-cont)
     (if (contains? var (state-vars state))
 	(return-cont state)
-        (append-var state var))))
+        (append-var state var return-cont))))
 
 ;stores the value associated with the variable in the sate
 (define store-variable-value-in-state
@@ -283,12 +283,12 @@
 (define layer car)
 
 ;;checks if varList contains a var, pass in state-vars
-(define contains?
+(define contains-helper?
   (lambda (varList var)
 	(cond
 	 ((null? varList) #f)
 	 ((eq? (car varList) var) #t)
-	 (else (contains? (cdr varList) var)))))
+	 (else (contains-helper? (cdr varList) var)))))
 
 ;;takes state as input, returns value of variable in state
 ;;returns error if var doesn't exist in state, #f if not inited
@@ -297,7 +297,7 @@
 	(cond
 	 ((null? state) (return (error "Variable not declared")))
 	 ((list? (layerVars state))
-	  (if (contains? (layerVars state) var)
+	  (if (contains-helper? (layerVars state) var)
 		  (return (getVariableValue-cps (layer state) var return))
 		  (getVariableValue (nextLayer state) var return)))
 	 (else (getVariableValue-cps state var return)))))
@@ -347,10 +347,10 @@
 
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
-  (lambda (e state)
+  (lambda (e state return-cont)
     (if(m-value-boolean (cond-stmt e) state)
-       (M-state-while e (M-state-stmt (then-tmt e) state))
-	   state)))
+       (M-state-while e (M-state-stmt (then-stmt e) state return-cont) return-cont)
+	   (return-cont state))))
 
 ;returns true if an operator is a boolean operator
 (define boolean-operator?

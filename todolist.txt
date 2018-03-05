@@ -12,5 +12,6 @@ Modify:
 -M_state functions
 
 Completed:
--getVariableValue
--contains?
+-getVariableValue --follow this method for how to modify other methods
+-contains-helper?(ok emacs search function sucks so i didnt realize it was already done and i'm too lazy to change whats already there)
+-M-state functions should work with a return continuation i passed in -- not sure if it's completely tail recursive but probably more tail recursive then it was
