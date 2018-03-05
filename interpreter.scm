@@ -209,7 +209,7 @@
   (lambda (e state return-cont)
 	(cond
 	 ((null? (cddr e)) (return-cont (store-variable-in-state (varName e) state return-cont)))
-	 (else (store-variable-value-in-state (varName e) (varValue e) state)))))
+	 (else (store-variable-value-in-state (varName e) (varValue e) state return-cont)))))
 
 ;stores the variable in the state
 (define store-variable-in-state
@@ -222,11 +222,11 @@
 
 ;stores the value associated with the variable in the sate
 (define store-variable-value-in-state
-  (lambda (var value state)
+  (lambda (var value state return-cont)
 	(cond
-	 ((eq? (getVariableValue state var default-continuation) #f) (cons (add-value-to-variable var value (top-state state) default-continuation) (cdr state)))
-	 ((eq? (getVariableValue state var default-continuation) value) state)
-	 (else (cons (cons var (state-vars (top-state state))) (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '()))))))
+	 ((eq? (getVariableValue state var return-cont) #f) (return-cont (cons (add-value-to-variable var value (top-state state) return-cont) (cdr state))))
+	 ((eq? (getVariableValue state var default-continuation) value) (return-cont state))
+	 (else (cons (cons var (state-vars (top-state state))) (return-cont (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '())))))))
 
 ;;helper method for appending item to end of list
 (define append-var
