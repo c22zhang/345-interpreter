@@ -91,6 +91,34 @@
 	 ((eq? 'while (keyword expression)) #t)
 	 (else #f))))
 
+(define try?
+  (lambda (expression)
+    (cond
+      ((null? expression) #f)
+      ((eq? 'try (keyword expression)) #t)
+      (else #f))))
+
+(define catch?
+  (lambda (expression)
+    (cond
+      ((null? expression) #f)
+      ((eq? 'catch (keyword expression)) #t)
+      (else #f))))
+
+(define break?
+  (lambda (expression)
+    (cond
+      ((null? expression) #f)
+      ((eq? 'break (keyword expression)) #t)
+      (else #f))))
+
+(define finally?
+  (lambda (expression)
+    (cond
+      ((null? expression) #f)
+      ((eq? 'finally (keyword expression)) #t)
+      (else #f))))
+
 ;returns true if an expression is an arithmetic operator
 (define arithmetic-operator?
   (lambda (op)
