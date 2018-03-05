@@ -1,8 +1,9 @@
+TODO:
+
+
 Modify:
 -store-variable-value-in-state
 -add-value-to-variable
--getVariableValue
--contains?
 -append-var
 -store-variable-in-state
 -modifyStateVals
@@ -11,3 +12,5 @@ Modify:
 -M_state functions
 
 Completed:
+-getVariableValue
+-contains?
