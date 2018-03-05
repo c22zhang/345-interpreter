@@ -159,20 +159,6 @@
 	 ((null? expr) #f)
 	 ((eq? '= (keyword expr)) #t)
 	 (else #f))))
-					
-;stores the variable in the state
-(define store-variable-in-state
-  (lambda (var state)
-    (if (contains? var (state-vars state))
-        state
-        (append-var state var))))
-
-;;helper method for appending item to end of list
-(define append-var
-  (lambda (state var)
-    (cond
-      ((null? list) (cons val '()))
-      (else (cons (append (car state) (cons var '())) (cdr state))))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -211,13 +197,6 @@
 	 ((null? (cddr e)) (return-cont (store-variable-in-state (varName e) state return-cont)))
 	 (else (store-variable-value-in-state (varName e) (varValue e) state)))))
 
-;stores the variable in the state
-(define store-variable-in-state
-  (lambda (var state return-cont)
-    (if (contains? var (state-vars state))
-	(return-cont state)
-        (append-var state var return-cont))))
-
 (define top-state car)
 
 ;stores the value associated with the variable in the sate
@@ -234,14 +213,6 @@
     (cond
 	 ((null? list) (return-cont (cons val '())))
 	 (else (return-cont (cons (append (car state) (cons var '())) (cdr state)))))))
-
-;returns true if the variable exists in the state
-(define var-exist-in-state?
-  (lambda (varName stateVars)
-    (cond
-      ((null? stateVars) #f)
-      ((eq?(car stateVars) (car varName)) #t)
-      (else (var-exist-in-state? varName (cdr stateVars))))))
 
 ;returns true if an atom is a variable
 (define variable?
@@ -295,10 +266,21 @@
 (define add-value-to-variable
   (lambda (var value state return-cont)
     (cons (cons var (remove-variable-from-list var (state-vars state) return-cont)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
-;;remove the variable from the list, then readd value with variable
 
-;;helper method that allows variables to be revalued 
+
+;;revalues variables 
 (define modifyVariableValue
+  (lambda (var val state return)
+    (cond 
+      ((null? state) (return #f))
+      ((list? (layerVars state))
+       (if (contains-helper? (layerVars state) var)
+           (return (cons (modifyVariableValue-helper var val (layer state) return) (cdr state) ))
+           (return (cons (car state) (modifyVariableValue var val (nextLayer state) return)))))
+      (else (modifyVariableValue-helper var val state return)))))
+                   
+;;helper method that allows variables to be revalued 
+(define modifyVariableValue-helper
   (lambda (var val state return-cont)
     (return-cont (cons (cons var (remove-variable-from-list var (state-vars state) return-cont))
           (cons (cons (m-value-expr val state) (modifyStateVals var (state-vars state) (state-vals state) return-cont)) '())))))
@@ -371,7 +353,6 @@
 	(if(m-value-boolean (cond-stmt e) state)
 	   (M-state-stmt (then-stmt e) state return-cont)
 	   (M-state-stmt (else-stmt e) state return-cont))))
-
 
 ;;helper method for if only statements
 (define if-only
