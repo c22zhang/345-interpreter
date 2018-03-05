@@ -114,9 +114,69 @@
 (define contains?
   (lambda (var state-var-list)
     (cond
-	 ((null? state-var-list) #f)
-	 ((eq? var (car state-var-list)) #t)
-	 (else (contains? var (cdr state-var-list))))))
+      ((null? state-var-list) #f)
+      ((eq? var (car state-var-list)) #t)
+      (else (contains? var (cdr state-var-list))))))
+
+(define block?
+  (lambda (expr)
+	(cond
+	 ((null? expr) #f)
+	 ((eq? 'begin (keyword expr)) #t)
+	 (else #f))))
+
+					
+;stores the variable in the state
+(define store-variable-in-state
+  (lambda (var state)
+    (if (contains? var (state-vars state))
+        state
+        (append-var state var))))
+
+;;helper method for appending item to end of list
+(define append-var
+  (lambda (state var)
+    (cond
+      ((null? list) (cons val '()))
+      (else (cons (append (car state) (cons var '())) (cdr state))))))
+
+;stores the value associated with the variable in the sate
+(define store-variable-value-in-state
+  (lambda (var value state)
+    (cond
+      ((eq? getVariableValue #f)(add-value-to-variable var value state))
+      ((eq? (getVariableValue state var) value) state)
+      (else (cons (cons var (state-vars state)) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))))
+
+;;helper function for add-value-to-variable
+(define remove-variable-from-list
+  (lambda (var lis)
+    (cond
+      ((null? lis) '())
+      ((eq? (eq? (car lis) var) #f)
+       (cons (car lis) (remove-variable-from-list var (cdr lis))))
+      (else (cdr lis)))))
+
+;;adds value to variable if it already exists but uninitialized in state
+(define add-value-to-variable
+  (lambda (var value state)
+    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+
+;;add layer to state
+;;param newLayer is a state in form '((a b) (1 2))
+(define addLayer
+  (lambda (newState state)
+    (cond
+      ((atom? (caar state)) (cons newState (cons state '())))
+      (else (cons newState state )))))
+
+;;removes topmost layer from state
+;;returns false if state is empty
+(define removeTopLayer
+  (lambda (state)
+    (if (null? state)
+        #f
+        (cdr state))))
 
 ;;declare variable, or initialize variable
 (define M-state-declare
@@ -179,25 +239,6 @@
 	 ((eq? '= (keyword expr)) #t)
 	 (else #f))))
 
-;;helper function for removeTopLayer
-(define removeTopLayer-cps
-  (lambda (state return)
-    (return (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())))))
-	
-;;removes topmost layer from state
-(define removeTopLayer
-  (lambda (state)
-	(removeTopLayer-cps state default-continuation)))
-
-;;add layer to state
-;;param newLayer is a state in form '((a b) (1 2))
-(define addLayer
-  (lambda (newLayer state)
-    (cond
-      ((list? (car (state-vars state))) (cons (cons (state-vars newLayer) (state-vars state)) (cons (cons (state-vals newLayer) (state-vals state)) '())))
-       (else (cons (cons (state-vars newLayer) (cons (state-vars state) '()))
-		  (cons (cons (state-vals newLayer) (cons (state-vals state) '())) '()))))))
-
      
 ;;assign value to variable if it exists
 (define M-state-assign
@@ -237,15 +278,39 @@
 	 (else (modifyStateVals var (cdr stateVars) (cdr stateVals) (lambda (v) (return-cont (cons (car stateVals) v))))))))
           ;(cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
 
-;;takes state as input, returns matching variable value, assumes everything lined up
+(define layerVars caar)
+(define nextLayer cdr)
+(define layer car)
+
+;;checks if varList contains a var, pass in state-vars
+(define contains-helper?
+  (lambda (varList var)
+	(cond
+	 ((null? varList) #f)
+	 ((eq? (car varList) var) #t)
+	 (else (contains-helper? (cdr varList) var)))))
+
+;;takes state as input, returns value of variable in state
+;;returns error if var doesn't exist in state, #f if not inited
 (define getVariableValue
-  (lambda (state var return-cont)
-    (cond
-	 ((null? state) (return-cont (error "Variable not declared")))
-	 ((null? (state-vals state)) (return-cont #f)) ;;variable is initialized but not declared
-	 ((eq? (car (state-vars state)) var) (return-cont (car (state-vals state))))
-         ((and (list? var) (eq? (car (state-vars state)) (car var))) (return-cont (car (state-vals state))))
-	 (else (getVariableValue (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var return-cont)))))
+  (lambda (state var return)
+	(cond
+	 ((null? state) (return (error "Variable not declared")))
+	 ((list? (layerVars state))
+	  (if (contains-helper? (layerVars state) var)
+		  (return (getVariableValue-cps (layer state) var return))
+		  (getVariableValue (nextLayer state) var return)))
+	 (else (getVariableValue-cps state var return)))))
+	
+;;wrapper for getVariableValue that reads in state
+;;if it returns z, that means variable not found in this state
+(define getVariableValue-cps
+  (lambda (state var return)
+	(cond
+	 ((null? state) (return 'z))
+	 ((null? (state-vals state)) (return #f))
+	 ((eq? (car (state-vars state)) var) (return (car (state-vals state))))
+	 (else (getVariableValue-cps (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var return)))))
 
 ;;determines proper method to call based on statement
 (define M-state-stmt
