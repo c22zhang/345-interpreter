@@ -224,6 +224,7 @@
 (define store-variable-value-in-state
   (lambda (var value state return-cont)
 	(cond
+         ((eq? (contains-helper? (car (top-state state)) var) #f) (cons (top-state state) (store-variable-value-in-state var value (cdr state) return-cont)))
 	 ((eq? (getVariableValue state var return-cont) #f) (return-cont (cons (add-value-to-variable var value (top-state state) return-cont) (cdr state))))
 	 ((eq? (getVariableValue state var default-continuation) value) (return-cont state))
 	 (else (cons (cons var (state-vars (top-state state))) (return-cont (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '())))))))
