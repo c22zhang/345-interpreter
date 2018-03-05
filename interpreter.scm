@@ -260,6 +260,19 @@
       ((and (list? e) (or (boolean-operator? (operator e)) (arithmetic-operator? (operator e)))) #t)
       (else #f))))
 
+(define startBlock?
+  (lambda (e)
+    (cond
+      ((null? e) #f)
+      ((eq? 'begin (operator e)) #t)
+      (else #f))))
+
+(define try?
+  (lambda (e)
+    (cond
+      ((null? e) #f)
+      ((eq? 'try (operator e)) #t)
+      (else #f))))
 
 ;;assign value to variable if it exists
 (define M-state-assign
@@ -332,11 +345,12 @@
 	 ((null? (state-vals state)) (return #f))
 	 ((eq? (car (state-vars state)) var) (return (car (state-vals state))))
 	 (else (getVariableValue-cps (cons (cdr (state-vars state)) (cons (cdr (state-vals state)) '())) var return)))))
-
+	
 ;;determines proper method to call based on statement
 (define M-state-stmt
   (lambda (e state return-cont)
 	(cond
+	 ((startBlock? e) (M-state-block (cdr e) state return-cont))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state return-cont) )
@@ -366,6 +380,22 @@
 	(M-state-stmt (then-stmt e) state return-cont)
         (return-cont state))))
 
+(define block-body car)
+(define next-stmt cdr)
+(define blank-state '(()()))
+
+;;M-state controller for block statements
+;;takes in expression -begin statement
+(define M-state-block
+  (lambda (e state return)
+	(return (addLayer (M-state-block-ctrl e blank-state default-continuation) state))))
+
+(define M-state-block-ctrl
+  (lambda (e state return)
+	(if (null? e)
+		(return state)
+		(M-state-block (next-stmt e) (M-state-stmt (block-body e) state return) return))))
+	  
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
   (lambda (e state return-cont)
