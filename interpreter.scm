@@ -172,7 +172,8 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state)
-    (cons (cons var (remove-variable-from-list var (state-vars state))) (cons (append (cons (m-value-expr value state) '()) (state-vals state)) '()))))
+    (cons (cons var (remove-variable-from-list var (state-vars state)))
+          (cons-to-empty-list (append (cons-to-empty-list (m-value-expr value state)) (state-vals state))))))
 
 ;;add layer to state
 ;;param newLayer is a state in form '((a b) (1 2))
@@ -213,14 +214,14 @@
 	 ((eq? (getVariableValue state var return-cont) #f) (return-cont (cons (add-value-to-variable var value state return-cont) (cdr state))))
 	 ((eq? (getVariableValue state var default-continuation) value) (return-cont state))
          ((eq? (contains-helper? (car (top-state state)) var) #f) (cons (top-state state) (store-variable-value-in-state var value (cdr state) return-cont)))
-	 (else (cons (cons var (state-vars (top-state state))) (return-cont (cons (append (cons (m-value-expr value state) '()) (state-vals (top-state state))) '())))))))
+	 (else (cons (cons var (state-vars (top-state state))) (return-cont (cons (append (cons-to-empty-list (m-value-expr value state)) (state-vals (top-state state))) '())))))))
 
 ;;helper method for appending item to end of list
 (define append-var
   (lambda (state var return-cont)
     (cond
-	 ((null? list) (return-cont (cons val '())))
-	 (else (return-cont (cons (append (car state) (cons var '())) (cdr state)))))))
+	 ((null? list) (return-cont (cons-to-empty-list val)))
+	 (else (return-cont (cons (append (car state) (cons-to-empty-list var)) (cdr state)))))))
 
 ;returns true if an atom is a variable
 (define variable?
@@ -273,7 +274,13 @@
 ;;adds value to variable if it already exists but uninitialized in state
 (define add-value-to-variable
   (lambda (var value state return-cont)
-    (cons (cons var (remove-variable-from-list var (state-vars (top-state state)) return-cont)) (cons (cons (m-value-expr value state) '()) (state-vals (top-state state))))))
+    (cons (cons var (remove-variable-from-list var (state-vars (top-state state)) return-cont))
+          (cons-to-empty-list (append (cons-to-empty-list (m-value-expr value state)) (state-vals (top-state state)))))))
+
+
+(define cons-to-empty-list
+  (lambda (element)
+    (cons element '())))
 
 ;;revalues variables 
 (define modifyVariableValue
