@@ -254,33 +254,16 @@
       ((eq? 'try (operator e)) #t)
       (else #f))))
 
+(define leftover cdr)
+
 ;;assign value to variable if it exists
 (define M-state-assign
-  (lambda (e state return-cont)
+  (lambda (e state init-state return-cont)
     (cond
-	 ((eq?(contains? (varName e) (state-vars state)) #f) (return-cont (error "variable not declared"))) 
-	 ((eq?(getVariableValue state (varName e) return-cont) #f) (add-value-to-variable (varName e) (varValue e) state return-cont))
-	 ((eq?(eq?(getVariableValue state (varName e) return-cont) (varValue e)) #f) (modifyVariableValue (varName e) (caddr e) state return-cont)))))
-
-;;helper function for add-value-to-variable
-(define remove-variable-from-list
-  (lambda (var lis return-cont)
-    (cond
-	 ((null? lis) (return-cont '()))
-	 ((eq? (eq? (car lis) var) #f) (remove-variable-from-list var (cdr lis) (lambda (v) (return-cont (cons (car lis) v)))))
-	  ;(cons (car lis) (remove-variable-from-list var (cdr lis))))
-	 (else (return-cont (cdr lis))))))
-
-;;adds value to variable if it already exists but uninitialized in state
-(define add-value-to-variable
-  (lambda (var value state return-cont)
-    (cons (cons var (remove-variable-from-list var (state-vars (top-state state)) return-cont))
-          (cons-to-empty-list (append (cons-to-empty-list (m-value-expr value state)) (state-vals (top-state state)))))))
-
-
-(define cons-to-empty-list
-  (lambda (element)
-    (cons element '())))
+      ((null? (top-state state)) (return-cont (error "variable not declared")))
+      ((eq?(contains? (varName e) (state-vars (top-state state))) #f) (M-state-assign e (leftover state) init-state (lambda(v) (return-cont (cons (top-state state) v)))));(cons (top-state state) (M-state-assign e (leftover state) return-cont)))
+      ((eq?(getVariableValue state (varName e) default-continuation) #f)  (return-cont (cons (assign-value-to-variable (varName e) (varValue e) init-state default-continuation) (leftover state))))
+      ((eq?(eq?(getVariableValue state (varName e) default-continuation) (varValue e)) #f) (return-cont (modifyVariableValue (varName e) (caddr e) state default-continuation))))))
 
 ;;revalues variables 
 (define modifyVariableValue
@@ -293,6 +276,33 @@
            (return (cons (car state) (modifyVariableValue var val (nextLayer state) return)))))
       (else (modifyVariableValue-helper var val state return)))))
                    
+
+;;helper function for add-value-to-variable
+(define remove-variable-from-list
+  (lambda (var lis return-cont)
+    (cond
+	 ((null? lis) (return-cont '()))
+	 ((eq? (eq? (car lis) var) #f) (remove-variable-from-list var (cdr lis) (lambda (v) (return-cont (cons (car lis) v)))))
+	  ;(cons (car lis) (remove-variable-from-list var (cdr lis))))
+	 (else (return-cont (cdr lis))))))
+
+;;like add-value-to-variable, but for m-state-assign
+(define assign-value-to-variable
+  (lambda (var value state init-state return-cont)
+    (cons (cons var (remove-variable-from-list var (state-vars (top-state state)) return-cont))
+          (cons-to-empty-list (append (cons-to-empty-list (m-value-expr value init-state)) (state-vals (top-state state)))))))
+
+;;adds value to variable if it already exists but uninitialized in state
+(define add-value-to-variable
+  (lambda (var value state return-cont)
+    (cons (cons var (remove-variable-from-list var (state-vars (top-state state)) return-cont))
+          (cons-to-empty-list (append (cons-to-empty-list (m-value-expr value state)) (state-vals (top-state state)))))))
+
+;;hopefully replaces some of the ugly (cons exp '()) statements around
+(define cons-to-empty-list
+  (lambda (element)
+    (cons element '())))
+
 ;;helper method that allows variables to be revalued 
 (define modifyVariableValue-helper
   (lambda (var val state return-cont)
