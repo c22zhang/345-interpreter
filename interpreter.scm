@@ -38,7 +38,7 @@
     (cond
 	 ((null? parse-tree) state)
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state default-continuation) return))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
          ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation) return))
 	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation) return))
@@ -262,7 +262,7 @@
     (cond
       ((null? (top-state state)) (return-cont (error "variable not declared")))
       ((eq?(contains? (varName e) (state-vars (top-state state))) #f) (M-state-assign e (leftover state) init-state (lambda(v) (return-cont (cons (top-state state) v)))));(cons (top-state state) (M-state-assign e (leftover state) return-cont)))
-      ((eq?(getVariableValue state (varName e) default-continuation) #f)  (return-cont (cons (assign-value-to-variable (varName e) (varValue e) init-state default-continuation) (leftover state))))
+      ((eq?(getVariableValue state (varName e) default-continuation) #f)  (return-cont (cons (assign-value-to-variable (varName e) (varValue e) state init-state default-continuation) (leftover state))))
       ((eq?(eq?(getVariableValue state (varName e) default-continuation) (varValue e)) #f) (return-cont (modifyVariableValue (varName e) (caddr e) state default-continuation))))))
 
 ;;revalues variables 
@@ -357,9 +357,9 @@
   (lambda (e state return-cont)
 	(cond
 	 ((startBlock? e) (M-state-block (cdr e) state return-cont))
-	 ((arithmetic-operator? (car e)) (M-state-assign e state return-cont))
+	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
-	 ((assignment? e) (M-state-assign e state return-cont) )
+	 ((assignment? e) (M-state-assign e state state return-cont) )
 	 ((return? e) (return-cont (get-return-value e state)))
 	 ((if-statement? e) (M-state-if-else e state))
 	 ((while-statement? e) (M-state-while e state)))))
