@@ -21,7 +21,7 @@
 (define else-stmt cadddr)
 
 ;binding for initial state
-(define init-state '(() ()))
+(define init-state '((() ())))
 ;default return continuation
 (define default-continuation (lambda (v) v))
 
@@ -40,8 +40,8 @@
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation) return))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation) return))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return))
 	 (else (interpret-state (next-expressions parse-tree) state return)))))
 
 ;finds the return value associated with a return statement
@@ -181,7 +181,7 @@
   (lambda (newState state)
     (cond
       ((atom? (caar state)) (cons newState (cons state '())))
-      (else (cons newState state )))))
+      (else (cons newState state)))))
 
 ;;removes topmost layer from state
 ;;returns false if state is empty
@@ -316,7 +316,6 @@
 	 ((null? stateVars) (return-cont stateVals))
 	 ((eq? (car stateVars) var) (return-cont (cdr stateVals)))
 	 (else (modifyStateVals var (cdr stateVars) (cdr stateVals) (lambda (v) (return-cont (cons (car stateVals) v))))))))
-          ;(cons (car stateVals) (modifyStateVals var (cdr stateVars) (cdr stateVals)))))))
 
 (define layerVars caar)
 (define nextLayer cdr)
@@ -354,35 +353,35 @@
 	
 ;;determines proper method to call based on statement
 (define M-state-stmt
-  (lambda (e state return-cont)
+  (lambda (e state return-cont return)
 	(cond
 	 ((startBlock? e) (M-state-block (cdr e) state return-cont))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
-	 ((return? e) (return-cont (get-return-value e state)))
+	 ((return? e) (return (get-return-value e state)))
 	 ((if-statement? e) (M-state-if-else e state))
 	 ((while-statement? e) (M-state-while e state)))))
 
 ;;main if statement controller
 (define M-state-if
-  (lambda (e state return-cont)
+  (lambda (e state return-cont return)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if-else e state return-cont) 
-	   (if-only e state return-cont))))
+	   (if-else e state return-cont return) 
+	   (if-only e state return-cont return))))
 
 ;;helper method for if else statements
 (define if-else
-  (lambda (e state return-cont)
+  (lambda (e state return-cont return)
 	(if(m-value-boolean (cond-stmt e) state)
-	   (M-state-stmt (then-stmt e) state return-cont)
-	   (M-state-stmt (else-stmt e) state return-cont))))
+	   (M-state-stmt (then-stmt e) state return-cont return)
+	   (M-state-stmt (else-stmt e) state return-cont return))))
 
 ;;helper method for if only statements
 (define if-only
-  (lambda (e state return-cont)
+  (lambda (e state return-cont return)
     (if (m-value-boolean (cond-stmt e) state)
-	(M-state-stmt (then-stmt e) state return-cont)
+	(M-state-stmt (then-stmt e) state return-cont return)
         (return-cont state))))
 
 (define block-body car)
@@ -403,9 +402,9 @@
 	  
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
-  (lambda (e state return-cont)
+  (lambda (e state return-cont return)
     (if(m-value-boolean (cond-stmt e) state)
-       (M-state-while e (M-state-stmt (then-stmt e) state return-cont) return-cont)
+       (M-state-while e (M-state-stmt (then-stmt e) state return-cont return) return-cont)
 	   (return-cont state))))
 
 ;returns true if an operator is a boolean operator
