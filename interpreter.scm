@@ -37,7 +37,7 @@
   (lambda (parse-tree state return)
     (cond
 	 ((null? parse-tree) state)
-         ((blockStatement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return) return))
+         ((blockStatement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation) return))
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
@@ -249,6 +249,7 @@
       (else #f))))
 
 (define leftover cdr)
+(define var-val caddr)
 
 ;;assign value to variable if it exists
 (define M-state-assign
@@ -256,18 +257,19 @@
     (cond
       ((null? (top-state state)) (return-cont (error "variable not declared")))
       ((eq?(contains? (varName e) (state-vars (top-state state))) #f) (M-state-assign e (leftover state) init-state (lambda(v) (return-cont (cons (top-state state) v)))));(cons (top-state state) (M-state-assign e (leftover state) return-cont)))
-      ((eq?(getVariableValue state (varName e) default-continuation) #f)  (return-cont (cons (assign-value-to-variable (varName e) (varValue e) state init-state default-continuation) (leftover state))))
-      ((eq?(eq?(getVariableValue state (varName e) default-continuation) (varValue e)) #f) (return-cont (modifyVariableValue (varName e) (caddr e) state default-continuation))))))
+      ((eq?(getVariableValue state (varName e) default-continuation) #f) (return-cont (cons (assign-value-to-variable (varName e) (varValue e) state init-state default-continuation) (leftover state))))
+      ((eq?(eq?(getVariableValue state (varName e) default-continuation) (varValue e)) #f) (return-cont (modifyVariableValue (varName e) (var-val e) state init-state default-continuation))))))
 
 ;;revalues variables 
 (define modifyVariableValue
-  (lambda (var val state return)
+  (lambda (var val state init-state return)
     (cond 
       ((null? state) (return #f))
+     ((variable? val) (modifyVariableValue var (getVariableValue init-state val default-continuation) state init-state return))
       ((list? (layerVars state))
        (if (contains-helper? (layerVars state) var)
            (return (cons (modifyVariableValue-helper var val (layer state) return) (cdr state) ))
-           (return (cons (car state) (modifyVariableValue var val (nextLayer state) return)))))
+           (return (cons (car state) (modifyVariableValue var val (nextLayer state) init-state return)))))
       (else (modifyVariableValue-helper var val state return)))))
                    
 
@@ -312,17 +314,27 @@
 	 (else (modifyStateVals var (cdr stateVars) (cdr stateVals) (lambda (v) (return-cont (cons (car stateVals) v))))))))
 
 (define layerVars caar)
+(define blockStatement cdr)
 (define nextLayer cdr)
 (define layer car)
+(define newLayer '(()()))
 
 ;;main controller for M-state-block
 (define M-state-block
+  (lambda (e state return-cont)
+    (return-cont (removeTopLayer (blockController (blockStatement e) (addLayer newLayer state) return-cont default-continuation)))))
+    
+(define currentStatement car)
+(define nextStatement cdr)
+;;helper function for M-state-block
+;;takes in block statement less begin keyword
+(define blockController
   (lambda (e state return-cont return)
-         (cond
-           ((null? e) (return-cont state))
-           (else (M-state-block (nextLayer e) (M-state-stmt (layer e) state return-cont return) return-cont return)))))
+    (cond
+      ((null? e) (return state))
+      ((null? (nextStatement e)) (return (M-state-stmt (currentStatement e) state return-cont return)))
+      (else (blockController (nextStatement e) (M-state-stmt (currentStatement e) state return-cont return) return-cont return)))))
            
-
 ;;checks if varList contains a var, pass in state-vars
 (define contains-helper?
   (lambda (varList var)
@@ -357,13 +369,13 @@
 (define M-state-stmt
   (lambda (e state return-cont return)
 	(cond
-         ((blockStatement? e) (M-state-block e state))
+         ((blockStatement? e) (M-state-block e state return-cont))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
 	 ((return? e) (return (get-return-value e state)))
-	 ((if-statement? e) (M-state-if-else e state))
-	 ((while-statement? e) (M-state-while e state)))))
+	 ((if-statement? e) (M-state-if e state return-cont return))
+	 ((while-statement? e) (M-state-while e state return-cont return)))))
 
 ;;main if statement controller
 (define M-state-if
