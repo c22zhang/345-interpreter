@@ -37,6 +37,7 @@
   (lambda (parse-tree state return)
     (cond
 	 ((null? parse-tree) state)
+         ((blockStatement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return) return))
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
@@ -50,6 +51,13 @@
     (if (return?  expression)
 		(m-value-expr (cadr expression) state)
 		(error 'badop "no return value"))))
+
+(define blockStatement?
+  (lambda (e)
+    (cond
+      ((null? e) #f)
+      ((eq? 'begin (keyword e)) #t)
+      (else #f))))
 
 ;returns true if an expression is a var-declaration
 (define var-declaration?
@@ -145,20 +153,6 @@
       ((null? state-var-list) #f)
       ((eq? var (car state-var-list)) #t)
       (else (contains? var (cdr state-var-list))))))
-
-(define block?
-  (lambda (expr)
-	(cond
-	 ((null? expr) #f)
-	 ((eq? 'begin (keyword expr)) #t)
-	 (else #f))))
-
-(define startBlock?
-  (lambda (expr)
-	(cond
-	 ((null? expr) #f)
-	 ((eq? '= (keyword expr)) #t)
-	 (else #f))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -321,6 +315,14 @@
 (define nextLayer cdr)
 (define layer car)
 
+;;main controller for M-state-block
+(define M-state-block
+  (lambda (e state return-cont return)
+         (cond
+           ((null? e) (return-cont state))
+           (else (M-state-block (nextLayer e) (M-state-stmt (layer e) state return-cont return) return-cont return)))))
+           
+
 ;;checks if varList contains a var, pass in state-vars
 (define contains-helper?
   (lambda (varList var)
@@ -355,7 +357,7 @@
 (define M-state-stmt
   (lambda (e state return-cont return)
 	(cond
-	 ((startBlock? e) (M-state-block (cdr e) state return-cont))
+         ((blockStatement? e) (M-state-block e state))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
@@ -388,17 +390,6 @@
 (define next-stmt cdr)
 (define blank-state '(()()))
 
-;;M-state controller for block statements
-;;takes in expression -begin statement
-(define M-state-block
-  (lambda (e state return)
-	(return (addLayer (M-state-block-ctrl e blank-state default-continuation) state))))
-
-(define M-state-block-ctrl
-  (lambda (e state return)
-	(if (null? e)
-		(return state)
-		(M-state-block (next-stmt e) (M-state-stmt (block-body e) state return) return))))
 	  
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
