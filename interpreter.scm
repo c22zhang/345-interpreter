@@ -272,7 +272,7 @@
       ((null? state) (return #f))
       ((list? (layerVars state))
        (if (contains-helper? (layerVars state) var)
-           (return (cons (modifyVariableValue-helper var val (layer state) init-state return) (cdr state) ))
+           (return (cons (modifyVariableValue-helper var val (layer state) return) (cdr state) ))
            (return (cons (car state) (modifyVariableValue var val (nextLayer state) init-state return)))))
       (else (modifyVariableValue-helper var val state init-state return)))))
                    
