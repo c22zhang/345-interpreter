@@ -62,6 +62,7 @@
   (lambda (e state return-cont return break continue throw)
     (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return break continue throw)))))
 
+;;top level try catch finally declaration
 (define M-state-try-master
   (lambda (e state return-cont return break continue)
     (cond
@@ -69,10 +70,12 @@
       ((and (null? (cdddr e)) (finally? (caddr e))) (M-state-try-finally e state return-cont return break continue))
       ((not (null? (cdddr e))) (M-state-try-catch-finally e state return-cont return break continue)))))
 
+;;try catch and finally
 (define M-state-try-catch-finally
   (lambda (e state return-cont return break continue)
     (M-state-finally (cadddr e) (M-state-try-catch e state return-cont return break continue) return-cont return break continue)))
 
+;;try and catch
 (define M-state-try-catch
   (lambda (e state return-cont return break continue)
     (cond
@@ -80,28 +83,32 @@
        (M-state-catch (caddr e) (M-state-try e state return-cont return break continue) state return-cont return break continue))
       (else (M-state-try e state return-cont return break continue)))))
 
+;;try and finally
 (define M-state-try-finally
   (lambda (e state return-cont return break continue)
     (cond
       ((atom? (M-state-try e state return-cont return break continue)) (M-state-finally e state return-cont return break continue))
       (else (M-state-finally (caddr e) (M-state-try e state return-cont return break continue) return-cont return break continue)))))
 
+;;individual mstate for catch
 (define M-state-catch
   (lambda (e caught-val state return-cont return break continue)
     (removeTopLayer (interpret-state (caddr e) (addLayer newLayer (M-state-declare (cons 'var (append (cadr e) (cons-to-empty-list caught-val))) state return-cont))
                                      return break continue null-continuation))))
-
+;;individual mstate for finally
 (define M-state-finally
   (lambda (e state return-cont return break continue)
     (if (null? e) (error "No finally statement")
     (removeTopLayer (interpret-state (cadr e) (addLayer newLayer state) return break continue null-continuation)))))
-        
+
+;;individual mstate for try        
 (define M-state-try
   (lambda (e state return-cont return break continue)
     (call/cc
      (lambda (throw)
        (M-state-try-helper e state return-cont return break continue throw)))))
 
+;;call/cc helper function for try
 (define M-state-try-helper
   (lambda (e state return-cont return break continue throw)
     (removeTopLayer (interpret-state (try-block e) (addLayer newLayer state) return break continue throw))))
@@ -153,6 +160,7 @@
 	 ((eq? 'while (keyword expression)) #t)
 	 (else #f))))
 
+;returns true if an expression is a try statement
 (define try?
   (lambda (expression)
     (cond
@@ -160,6 +168,7 @@
       ((eq? 'try (keyword expression)) #t)
       (else #f))))
 
+;returns true if an expressio is catch statement
 (define catch?
   (lambda (expression)
     (cond
@@ -167,6 +176,7 @@
       ((eq? 'catch (keyword expression)) #t)
       (else #f))))
 
+;returns true if an expression is a break statement
 (define break?
   (lambda (expression)
     (cond
@@ -174,6 +184,7 @@
       ((eq? 'break (keyword expression)) #t)
       (else #f))))
 
+;returns true if an expression is a finally statement
 (define finally?
   (lambda (expression)
     (cond
@@ -181,6 +192,7 @@
       ((eq? 'finally (keyword expression)) #t)
       (else #f))))
 
+;returns true if an expression si a continue statement
 (define continue?
   (lambda (expression)
     (cond
@@ -215,6 +227,7 @@
       ((eq? var (car state-var-list)) #t)
       (else (contains? var (cdr state-var-list))))))
 
+;returns true if an expression is the beginning of a block
 (define block?
   (lambda (expr)
 	(cond
@@ -222,6 +235,7 @@
 	 ((eq? 'begin (keyword expr)) #t)
 	 (else #f))))
 
+;same as above (probably need a proofread)
 (define startBlock?
   (lambda (expr)
 	(cond
@@ -229,6 +243,7 @@
 	 ((eq? '= (keyword expr)) #t)
 	 (else #f))))
 
+;returns true if an expression is a throw statement
 (define throw?
   (lambda (expr)
     (cond
@@ -316,6 +331,7 @@
       ((and (list? e) (or (boolean-operator? (operator e)) (arithmetic-operator? (operator e)))) #t)
       (else #f))))
 
+;defines the start of a block
 (define startBlock?
   (lambda (e)
     (cond
@@ -323,6 +339,7 @@
       ((eq? 'begin (operator e)) #t)
       (else #f))))
 
+;try statement
 (define try?
   (lambda (e)
     (cond
@@ -472,6 +489,7 @@
      (lambda (break)
        (M-state-while-break-helper e state return-cont return break throw)))))
 
+;helper function to implement break w/ call/cc
 (define M-state-while-break-helper
   (lambda (e state return-cont return break throw)
     (if (m-value-boolean (cond-stmt e) state)
@@ -480,7 +498,8 @@
          (lambda (continue)
            (M-state-while-continue-helper e state return-cont return break continue throw))) return-cont return break throw)
         (return-cont state))))
-       
+
+;helper function to implement continue w/ call/cc
 (define M-state-while-continue-helper
   (lambda (e state return-cont return break continue throw)
      (M-state-stmt (then-stmt e) state return-cont return break continue throw)))
