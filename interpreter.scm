@@ -32,26 +32,28 @@
   (lambda (filename)
     (call/cc
      (lambda (return)
-       (interpret-state (parser filename) init-state return)))))
+       (interpret-state (parser filename) init-state return '())))))
 
 ;interpreter to interpret all individual statements returned by the parser
 (define interpret-state
-  (lambda (parse-tree state return)
+  (lambda (parse-tree state return continue)
     (cond
 	 ((null? parse-tree) state)
-         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return) return))
-	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return))
+         ((and (continue? (current-expression parse-tree)) (not (eq? continue '()))) (continue state))
+         ((and (continue? (current-expression parse-tree)) (eq? continue '())) (error "continue outside of loop"))
+         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return continue) return continue))
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return continue))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return continue))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return))
-	 (else (interpret-state (next-expressions parse-tree) state return)))))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return continue))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return continue))
+	 (else (interpret-state (next-expressions parse-tree) state return continue)))))
 
 ;;M-state controller for block statements
 ;;takes in expression -begin statement
 (define M-state-block
-  (lambda (e state return-cont return)
-    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return)))))
+  (lambda (e state return-cont return continue)
+    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return continue)))))
 
 ;finds the return value associated with a return statement
 (define get-return-value
@@ -126,6 +128,13 @@
     (cond
       ((null? expression) #f)
       ((eq? 'finally (keyword expression)) #t)
+      (else #f))))
+
+(define continue?
+  (lambda (expression)
+    (cond
+      ((null? expression) #f)
+      ((eq? 'continue (keyword expression)) #t)
       (else #f))))
 
 ;returns true if an expression is an arithmetic operator
@@ -361,9 +370,9 @@
 	
 ;;determines proper method to call based on statement
 (define M-state-stmt
-  (lambda (e state return-cont return)
+  (lambda (e state return-cont return continue)
 	(cond
-	 ((startBlock? e) (M-state-block (cdr e) state return-cont return))
+	 ((startBlock? e) (M-state-block e state return-cont return continue))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
@@ -395,8 +404,14 @@
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
   (lambda (e state return-cont return)
+    (call/cc
+     (lambda (continue)
+       (M-state-while-helper e state return-cont return continue)))))
+
+(define M-state-while-helper
+  (lambda (e state return-cont return continue)
     (if(m-value-boolean (cond-stmt e) state)
-       (M-state-while e (M-state-stmt (then-stmt e) state return-cont return) return-cont return)
+       (M-state-while-helper e (M-state-stmt (then-stmt e) state return-cont return continue) return-cont return continue)
 	   (return-cont state))))
 
 ;returns true if an operator is a boolean operator
