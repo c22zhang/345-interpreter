@@ -36,24 +36,24 @@
 
 ;interpreter to interpret all individual statements returned by the parser
 (define interpret-state
-  (lambda (parse-tree state return continue)
+  (lambda (parse-tree state return break)
     (cond
 	 ((null? parse-tree) state)
-         ((and (continue? (current-expression parse-tree)) (not (eq? continue '()))) (continue state))
-         ((and (continue? (current-expression parse-tree)) (eq? continue '())) (error "continue outside of loop"))
-         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return continue) return continue))
-	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return continue))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return continue))
+         ((and (break? (current-expression parse-tree)) (not (eq? break '()))) (break state))
+         ((and (break? (current-expression parse-tree)) (eq? break '())) (error "break outside of loop"))
+         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return break) return break))
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return break))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return break))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return continue))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return continue))
-	 (else (interpret-state (next-expressions parse-tree) state return continue)))))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return break))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return break))
+	 (else (interpret-state (next-expressions parse-tree) state return break)))))
 
 ;;M-state controller for block statements
 ;;takes in expression -begin statement
 (define M-state-block
-  (lambda (e state return-cont return continue)
-    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return continue)))))
+  (lambda (e state return-cont return break)
+    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return break)))))
 
 ;finds the return value associated with a return statement
 (define get-return-value
@@ -130,11 +130,11 @@
       ((eq? 'finally (keyword expression)) #t)
       (else #f))))
 
-(define continue?
+(define break?
   (lambda (expression)
     (cond
       ((null? expression) #f)
-      ((eq? 'continue (keyword expression)) #t)
+      ((eq? 'break (keyword expression)) #t)
       (else #f))))
 
 ;returns true if an expression is an arithmetic operator
@@ -370,9 +370,9 @@
 	
 ;;determines proper method to call based on statement
 (define M-state-stmt
-  (lambda (e state return-cont return continue)
+  (lambda (e state return-cont return break)
 	(cond
-	 ((startBlock? e) (M-state-block e state return-cont return continue))
+	 ((startBlock? e) (M-state-block e state return-cont return break))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
@@ -405,13 +405,13 @@
 (define M-state-while
   (lambda (e state return-cont return)
     (call/cc
-     (lambda (continue)
-       (M-state-while-helper e state return-cont return continue)))))
+     (lambda (break)
+       (M-state-while-helper e state return-cont return break)))))
 
 (define M-state-while-helper
-  (lambda (e state return-cont return continue)
+  (lambda (e state return-cont return break)
     (if(m-value-boolean (cond-stmt e) state)
-       (M-state-while-helper e (M-state-stmt (then-stmt e) state return-cont return continue) return-cont return continue)
+       (M-state-while-helper e (M-state-stmt (then-stmt e) state return-cont return break) return-cont return break)
 	   (return-cont state))))
 
 ;returns true if an operator is a boolean operator
