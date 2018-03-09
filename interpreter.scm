@@ -441,7 +441,7 @@
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
 	 ((return? e) (return (get-return-value e state)))
-	 ((if-statement? e) (M-state-if-else e state return break continue throw))
+	 ((if-statement? e) (M-state-if e state return-cont return break continue throw))
 	 ((while-statement? e) (M-state-while e state return throw)))))
 
 ;;main if statement controller
