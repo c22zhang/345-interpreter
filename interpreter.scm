@@ -21,6 +21,8 @@
 (define else-stmt cadddr)
 (define blockStatement cdr)
 (define newLayer '(()()))
+(define null-continuation '())
+(define throw-val cadr)
 
 ;binding for initial state
 (define init-state '((() ())))
@@ -32,30 +34,62 @@
   (lambda (filename)
     (call/cc
      (lambda (return)
-       (interpret-state (parser filename) init-state return '() '() )))))
+       (interpret-state (parser filename) init-state return null-continuation null-continuation null-continuation)))))
 
 ;interpreter to interpret all individual statements returned by the parser
 (define interpret-state
-  (lambda (parse-tree state return break continue)
+  (lambda (parse-tree state return break continue throw)
     (cond
 	 ((null? parse-tree) state)
-         ((and (break? (current-expression parse-tree)) (not (eq? break '()))) (break (removeTopLayer state)))
-         ((and (break? (current-expression parse-tree)) (eq? break '())) (error "break outside of loop"))
-         ((and (continue? (current-expression parse-tree)) (not (eq? continue '()))) (continue  state))
-         ((and (continue? (current-expression parse-tree)) (eq? continue '())) (error "continue outside of loop"))
-         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return break continue) return break continue))
-	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return break continue))
-	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return break continue))
+         ((and (break? (current-expression parse-tree)) (not (eq? break null-continuation))) (break (removeTopLayer state)))
+         ((and (break? (current-expression parse-tree)) (eq? break null-continuation)) (error "break outside of loop"))
+         ((and (continue? (current-expression parse-tree)) (not (eq? continue null-continuation))) (continue state))
+         ((and (continue? (current-expression parse-tree)) (eq? continue null-continuation)) (error "continue outside of loop"))
+         ((and (throw? (current-expression parse-tree)) (not (eq? throw null-continuation))) (throw (throw-val (current-expression parse-tree))))
+         ((and (throw? (current-expression parse-tree)) (not (eq? throw null-continuation))) (error "throw outside of try"))
+         ((try? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-try (current-expression parse-tree) state default-continuation return break continue) return break continue throw))
+         ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return break continue throw) return break continue throw))
+	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return break continue throw))
+	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return break continue throw))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return break continue) return break continue))
-	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return break continue))
-	 (else (interpret-state (next-expressions parse-tree) state return break)))))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return break continue throw) return break continue throw))
+	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return throw) return break continue throw))
+	 (else (interpret-state (next-expressions parse-tree) state return break continue throw)))))
 
 ;;M-state controller for block statements
 ;;takes in expression -begin statement
 (define M-state-block
+  (lambda (e state return-cont return break continue throw)
+    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return break continue throw)))))
+
+(define M-state-try-master
   (lambda (e state return-cont return break continue)
-    (return-cont (removeTopLayer (interpret-state (blockStatement e) (addLayer newLayer state) return break continue)))))
+    (cond
+      ((and (null? (cdddr e)) (catch? (caddr e))) (M-state-try-catch e state return-cont return break continue))
+      ((and (null? (cdddr e)) (finally? (caddr e))) (M-state-try-finally e state return-cont return break continue))
+      ((not (null? (cdddr e))) (M-state-try-catch-finally e state return-cont return break continue)))))
+
+(define M-state-try-catch
+  (lambda (e state return-cont return break continue)
+    (cond
+      ((atom? (M-state-try e state return-cont return break continue))
+       (M-state-catch (caddr e) (M-state-try e state return-cont return break continue) state return-cont return break continue)))
+      (else (M-state-try e state return-cont return break continue))))
+
+(define M-state-catch
+  (lambda (e caught-val state return-cont return break continue)
+    (removeTopLayer (interpret-state (caddr e) (M-state-declare (cons 'var (append (cadr e) (cons-to-empty-list (caught-val)))) state return-cont)
+                                     return break continue null-continuation))))
+        
+(define M-state-try
+  (lambda (e state return-cont return break continue)
+    (call/cc
+     (lambda (throw)
+       (M-state-try-helper e state return-cont return break continue throw)))))
+
+(define M-state-try-helper
+  (lambda (e state return-cont return break continue throw)
+    (removeTopLayer (interpret-state (try-block e) (addLayer newLayer state) return break continue throw))))
 
 ;finds the return value associated with a return statement
 (define get-return-value
@@ -132,13 +166,6 @@
       ((eq? 'finally (keyword expression)) #t)
       (else #f))))
 
-(define break?
-  (lambda (expression)
-    (cond
-      ((null? expression) #f)
-      ((eq? 'break (keyword expression)) #t)
-      (else #f))))
-
 (define continue?
   (lambda (expression)
     (cond
@@ -186,6 +213,13 @@
 	 ((null? expr) #f)
 	 ((eq? '= (keyword expr)) #t)
 	 (else #f))))
+
+(define throw?
+  (lambda (expr)
+    (cond
+      ((null? expr) #f)
+      ((eq? 'throw (keyword expr)) #t)
+      (else #f))))
 
 ;;helper function for add-value-to-variable
 (define remove-variable-from-list
@@ -379,62 +413,64 @@
 	
 ;;determines proper method to call based on statement
 (define M-state-stmt
-  (lambda (e state return-cont return break continue)
+  (lambda (e state return-cont return break continue throw)
 	(cond
-         ((and (break? e) (not (eq? break '()))) (break (removeTopLayer state)))
-         ((and (break? e) (eq? break '())) (error "break outside of loop"))
-         ((and (continue? e) (not (eq? continue '()))) (continue (removeTopLayer state)))
-         ((and (continue? e) (not (eq? continue '()))) (error "continue outside of loop"))
-	 ((startBlock? e) (M-state-block e state return-cont return break continue))
+         ((and (break? e) (not (eq? break null-continuation))) (break (removeTopLayer state)))
+         ((and (break? e) (eq? break null-continuation)) (error "break outside of loop"))
+         ((and (continue? e) (not (eq? continue null-continuation))) (continue (removeTopLayer state)))
+         ((and (continue? e) (not (eq? continue null-continuation))) (error "continue outside of loop"))
+         ((and (throw? e) (not (eq? throw null-continuation))) (throw (throw-val e)))
+         ((and (throw? e) (not (eq? throw null-continuation))) (error "throw outside of try"))
+	 ((startBlock? e) (M-state-block e state return-cont return break continue throw))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
 	 ((return? e) (return (get-return-value e state)))
-	 ((if-statement? e) (M-state-if-else e state return break continue))
-	 ((while-statement? e) (M-state-while e state return)))))
+	 ((if-statement? e) (M-state-if-else e state return break continue throw))
+	 ((while-statement? e) (M-state-while e state return throw)))))
 
 ;;main if statement controller
 (define M-state-if
-  (lambda (e state return-cont return break continue)
+  (lambda (e state return-cont return break continue throw)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if-else e state return-cont return break continue)  
-	   (if-only e state return-cont return break continue))))
+	   (if-else e state return-cont return break continue throw)  
+	   (if-only e state return-cont return break continue throw))))
 
 ;;helper method for if else statements
 (define if-else
-  (lambda (e state return-cont return break continue)
+  (lambda (e state return-cont return break continue throw)
 	(if(m-value-boolean (cond-stmt e) state)
-	   (M-state-stmt (then-stmt e) state return-cont return break continue)
-	   (M-state-stmt (else-stmt e) state return-cont return break continue))))
+	   (M-state-stmt (then-stmt e) state return-cont return break continue throw)
+	   (M-state-stmt (else-stmt e) state return-cont return break continue throw))))
 
 ;;helper method for if only statements
 (define if-only
-  (lambda (e state return-cont return break continue)
+  (lambda (e state return-cont return break continue throw)
     (if (m-value-boolean (cond-stmt e) state)
-	(M-state-stmt (then-stmt e) state return-cont return break continue)
+	(M-state-stmt (then-stmt e) state return-cont return break continue throw)
         (return-cont state))))
 
 ;modify the state based on the expression/condition of a while loop
 (define M-state-while
-  (lambda (e state return-cont return)
+  (lambda (e state return-cont return throw)
     (call/cc
      (lambda (break)
-       (M-state-while-break-helper e state return-cont return break)))))
+       (M-state-while-break-helper e state return-cont return break throw)))))
 
 (define M-state-while-break-helper
-  (lambda (e state return-cont return break)
+  (lambda (e state return-cont return break throw)
     (if (m-value-boolean (cond-stmt e) state)
         (M-state-while-break-helper e 
         (call/cc
          (lambda (continue)
-           (M-state-while-continue-helper e state return-cont return break continue))) return-cont return break)
+           (M-state-while-continue-helper e state return-cont return break continue))) return-cont return break throw)
         (return-cont state))))
        
 (define M-state-while-continue-helper
-  (lambda (e state return-cont return break continue)
-     (M-state-stmt (then-stmt e) state return-cont return break continue)))
+  (lambda (e state return-cont return break continue throw)
+     (M-state-stmt (then-stmt e) state return-cont return break continue throw)))
 	   
-
+(define try-block cadr)
 ;returns true if an operator is a boolean operator
 (define boolean-operator?
   (lambda (exp)
