@@ -363,7 +363,7 @@
 (define M-state-stmt
   (lambda (e state return-cont return)
 	(cond
-	 ((startBlock? e) (M-state-block (cdr e) state return-cont))
+	 ((startBlock? e) (M-state-block (cdr e) state return-cont return))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
