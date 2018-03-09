@@ -39,13 +39,13 @@
   (lambda (parse-tree state return break)
     (cond
 	 ((null? parse-tree) state)
-         ((and (break? (current-expression parse-tree)) (not (eq? break '()))) (break state))
+         ((and (break? (current-expression parse-tree)) (not (eq? break '()))) (break (removeTopLayer state)))
          ((and (break? (current-expression parse-tree)) (eq? break '())) (error "break outside of loop"))
          ((block? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-block (current-expression parse-tree) state default-continuation return break) return break))
 	 ((var-declaration? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-declare (current-expression parse-tree) state default-continuation) return break))
 	 ((assignment? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-assign (current-expression parse-tree) state state default-continuation) return break))
 	 ((return? (current-expression parse-tree)) (return (get-return-value (current-expression parse-tree) state)))
-         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return) return break))
+         ((if-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-if (current-expression parse-tree) state default-continuation return break) return break))
 	 ((while-statement? (current-expression parse-tree)) (interpret-state (next-expressions parse-tree) (M-state-while (current-expression parse-tree) state default-continuation return) return break))
 	 (else (interpret-state (next-expressions parse-tree) state return break)))))
 
@@ -372,33 +372,35 @@
 (define M-state-stmt
   (lambda (e state return-cont return break)
 	(cond
+         ((and (break? e) (not (eq? break '()))) (break (removeTopLayer state)))
+         ((and (break? e) (eq? break '())) (error "break outside of loop"))
 	 ((startBlock? e) (M-state-block e state return-cont return break))
 	 ((arithmetic-operator? (car e)) (M-state-assign e state state return-cont))
 	 ((var-declaration? e) (M-state-declare e state return-cont))
 	 ((assignment? e) (M-state-assign e state state return-cont) )
 	 ((return? e) (return (get-return-value e state)))
-	 ((if-statement? e) (M-state-if-else e state return))
+	 ((if-statement? e) (M-state-if-else e state return break))
 	 ((while-statement? e) (M-state-while e state return)))))
 
 ;;main if statement controller
 (define M-state-if
-  (lambda (e state return-cont return)
+  (lambda (e state return-cont return break)
 	(if(eq?(null? (cdddr e)) #f)
-	   (if-else e state return-cont return) 
-	   (if-only e state return-cont return))))
+	   (if-else e state return-cont return break)  
+	   (if-only e state return-cont return break))))
 
 ;;helper method for if else statements
 (define if-else
-  (lambda (e state return-cont return)
+  (lambda (e state return-cont return break)
 	(if(m-value-boolean (cond-stmt e) state)
-	   (M-state-stmt (then-stmt e) state return-cont return)
-	   (M-state-stmt (else-stmt e) state return-cont return))))
+	   (M-state-stmt (then-stmt e) state return-cont return break)
+	   (M-state-stmt (else-stmt e) state return-cont return break))))
 
 ;;helper method for if only statements
 (define if-only
-  (lambda (e state return-cont return)
+  (lambda (e state return-cont return break)
     (if (m-value-boolean (cond-stmt e) state)
-	(M-state-stmt (then-stmt e) state return-cont return)
+	(M-state-stmt (then-stmt e) state return-cont return break)
         (return-cont state))))
 
 ;modify the state based on the expression/condition of a while loop
@@ -437,6 +439,7 @@
     (cond
       ((null? e) (error "empty expression"))
       ((number? e) (m-value-int e state))
+      ((and (atom? e) (eq? (getVariableValue state e default-continuation) #f)) (error "variable not found"))
       ((atom? e) (getVariableValue state e default-continuation))
       ((list? (car e)) (m-value-expr (car e) state))
       ((and (not (boolean-operator? (operator e))) (or (or (arithmetic-operator? (operator e)) (number? (operator e))) (atom? (operator e))) (m-value-int e state)))
