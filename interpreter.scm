@@ -1,11 +1,7 @@
 ; If you are using racket instead of scheme, uncomment these two lines, comment the (load "simpleParser.scm") and uncomment the (require "simpleParser.scm")
 ; #lang racket
 ; (require "simpleParser.scm")
-(load "simpleParser.scm")
-
-
-; An interpreter for the simple language that uses call/cc for the continuations.  Does not handle side effects.
-(define call/cc call-with-current-continuation)
+(load "functionParser.scm")
 
 
 ; The functions that start interpret-...  all return the current environment.
@@ -22,6 +18,12 @@
                                   (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
+; statement-list - what the parser returns
+; environment - state '((()()))
+; return - return call/cc
+; break - break call/cc or error
+; continue - continue call/cc or error
+; throw - throw call/cc or error
 (define interpret-statement-list
   (lambda (statement-list environment return break continue throw)
     (if (null? statement-list)
@@ -43,6 +45,13 @@
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
+
+; Determines whether or not a statement is a function declaration
+(define function?
+  (lambda (statement)
+    (if (eq? 'function (statement-type statement))
+        #t
+        #f)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -199,6 +208,9 @@
 (define operand1 cadr)
 (define operand2 caddr)
 (define operand3 cadddr)
+(define function-name cadr)
+(define function-parameters caddr)
+(define function-body cadddr)
 
 (define exists-operand2?
   (lambda (statement)
@@ -364,6 +376,15 @@
 (define store
   (lambda (frame)
     (cadr frame)))
+
+; Generates the function closure given a function definition
+; Note env-func should be a function that generates the function environment (Not worked out yet)
+(define function-closure
+  (lambda (function-def env-func)
+    (cond
+      ((null? (function-name function-def)) (myerror "error: invalid function definition"))
+      (else (list (function-parameters function-def) (function-body function-def) env-func)))))
+      
 
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
