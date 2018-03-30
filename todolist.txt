@@ -1,24 +1,9 @@
-TODO:
+TODO - Interpreter 3:
 
-Modify:
-<<<<<<< HEAD
--add-value-to-variable
--append-var
--modifyStateVals
--modifyVariableValue
--var-exist-in-state
-=======
-
->>>>>>> 73424ac5675eeb5744cb94b59b670a883b436663
--M_state functions
-
-Completed
--M-state-declare should be fine
--store-variable-in-state should work for layered lists:
--store-variable-value-in-state should work hopefully maybe
--getVariableValue --follow this method for how to modify other methods
--contains-helper?(ok emacs search function sucks so i didnt realize it was already done and i'm too lazy to change whats already there)
--M-state functions should work with a return continuation i passed in -- not sure if it's completely tail recursive but probably more tail recursive then it was
--modifyVariableValue ->reads layers correctly
--add-value-to-variable (THIS MIGHT NEED TO BE MODIFIED LATER) ->should be fixed from store-variable-value-in-state
--modifyStateVals->worked by default
+Pretty much everything to do with functions that aren't named main
+  - M-state/M-value for functions
+  - getting function calls to actually work
+  - binding function parameter lists to their values 
+  - function that gets a functions environment (still somewhat confused on what he means by this)
+  - handling recursion
+  - functions within functions
