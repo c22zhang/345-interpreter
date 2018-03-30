@@ -13,7 +13,7 @@
     (scheme->language
      (call/cc
       (lambda (return)
-        (interpret-statement-list (parser file) (newenvironment) return
+        (run-main (global-level-parse (parser file) newenvironment) return
                                   (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
@@ -46,12 +46,39 @@
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
-; Determines whether or not a statement is a function declaration
-(define function?
-  (lambda (statement)
-    (if (eq? 'function (statement-type statement))
-        #t
-        #f)))
+(define individual-statement car)
+(define env-names caar)
+(define env-values caadar)
+(define func-body cadr)
+
+(define run-main
+  (lambda (environment return break continue throw)
+    (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
+
+(define get-function-body
+  (lambda (func-name environment)
+    (func-body (get-function-closure func-name environment))))
+
+(define get-function-closure
+  (lambda (func-name environment)
+    ;don't question it, it just works
+    (eval-expression func-name environment)))
+
+; Does the first outer level parse of global variables and functions
+(define global-level-parse
+  (lambda (statement-list environment)
+    (cond
+      ((null? statement-list) environment)
+      ((eq? 'var (statement-type (individual-statement statement-list)))
+       (global-level-parse (remaining-statements statement-list) (interpret-declare (individual-statement statement-list) environment)))
+      ((eq? 'function (statement-type (individual-statement statement-list)))
+       (global-level-parse (remaining-statements statement-list) (insert-function (individual-statement statement-list) environment)))
+      (else (myerror "Unsupported top-level statement: " (statement-type statement))))))
+
+;TODO: REPLACE FUNC-ENV
+(define insert-function
+  (lambda (statement environment)
+    (insert (function-name statement) (function-closure statement (lambda(func-env) func-env)) environment)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -211,6 +238,7 @@
 (define function-name cadr)
 (define function-parameters caddr)
 (define function-body cadddr)
+(define remaining-statements cdr)
 
 (define exists-operand2?
   (lambda (statement)
@@ -303,7 +331,7 @@
 (define lookup-in-env
   (lambda (var environment)
     (cond
-      ((null? environment) (myerror "error: undefined variable" var))
+      ((null? environment) (myerror "error: undefined variable or function" var))
       ((exists-in-list? var (variables (topframe environment))) (lookup-in-frame var (topframe environment)))
       (else (lookup-in-env var (cdr environment))))))
 
@@ -311,7 +339,7 @@
 (define lookup-in-frame
   (lambda (var frame)
     (cond
-      ((not (exists-in-list? var (variables frame))) (myerror "error: undefined variable" var))
+      ((not (exists-in-list? var (variables frame))) (myerror "error: undefined variable or function" var))
       (else (language->scheme (get-value (indexof var (variables frame)) (store frame)))))))
 
 ; Get the location of a name in a list of names
