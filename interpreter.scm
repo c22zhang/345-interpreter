@@ -80,7 +80,9 @@
 ; TODO: have this evaluate variables
 (define generate-param-bindings
   (lambda (func-name environment func-call)
-    (list (car (get-function-closure func-name environment)) (eval-params (cddr func-call) environment))))
+    (if (null? (cddr func-call))
+        (newframe)
+        (list (car (get-function-closure func-name environment)) (eval-params (cddr func-call) environment)))))
 
 (define eval-params
   (lambda (params-list environment)
@@ -111,12 +113,13 @@
     ((caddr (get-function-closure name env)) name closure call env)))
 
 (define funcall-name cadr)
+
 ;interprets functions
-(define M-state-function
+(define M-value-function
   (lambda (funcall environment return break continue throw)
-    (interpret-statement-list (get-function-body (funcall-name funcall)
-                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure name env) funcall environment)
-                                                 return break continue throw))))
+    (interpret-statement-list (get-function-body (funcall-name funcall) environment)
+                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment) funcall environment)
+                                                 return break continue throw)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
