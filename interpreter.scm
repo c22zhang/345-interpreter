@@ -37,6 +37,7 @@
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
+     ;; ((eq? 'funcall (statement-type statement)) (error "do something to go to function"))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
       ((eq? 'continue (statement-type statement)) (continue environment))
@@ -49,7 +50,8 @@
 ; interprets the main function of the file
 (define run-main
   (lambda (environment return break continue throw)
-    (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
+    ;;(get-function-body 'main environment)))
+   (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
 
 ; gets the function body for a specified function
 (define get-function-body
@@ -191,6 +193,8 @@
       ((eq? expr 'false) #f)
       ((not (list? expr)) (lookup expr environment))
       (else (eval-operator expr environment)))))
+
+(define func_name cadr)
 
 ; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
 ; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
