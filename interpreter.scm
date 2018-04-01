@@ -51,7 +51,7 @@
 (define run-main
   (lambda (environment return break continue throw)
     ;;(get-function-body 'main environment)))
-   (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
+   (interpret-statement-list (get-function-body 'main environment) (push-frame environment) return break continue throw)))
 
 ; gets the function body for a specified function
 (define get-function-body
