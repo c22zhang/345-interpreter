@@ -1,0 +1,1 @@
+(M-state-function '(funcall test) (global-level-parse (parser "testes.txt") '((()()))) (lambda(v) v) (lambda (v) v) (lambda (v) v) (lambda(v) v))
