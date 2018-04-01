@@ -130,6 +130,7 @@
 
 (define funcall-name cadr)
 
+; M-state for function for when the return value of a function is not being used
 (define M-state-function
   (lambda (funcall environment)
     (call/cc
@@ -137,6 +138,7 @@
        (M-state-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown")))))))
 
+; helper for M-state-function that reinitializes the continuations
 (define M-state-function-helper
   (lambda (funcall environment return break continue throw)
     (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment)
