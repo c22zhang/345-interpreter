@@ -46,8 +46,6 @@
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
-
-
 ; interprets the main function of the file
 (define run-main
   (lambda (environment return break continue throw)
@@ -79,6 +77,11 @@
 (define insert-function
   (lambda (statement environment)
     (insert (function-name statement) (function-closure statement (lambda(func-env) func-env)) environment)))
+
+;interprets functions
+(define M-state-function
+  (lambda (func environment return break continue throw)
+    (interpret-statement-list (get-function-body (functionName func) environment) environment return break continue throw)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return

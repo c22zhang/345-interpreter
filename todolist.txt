@@ -6,4 +6,13 @@ Pretty much everything to do with functions that aren't named main
   - binding function parameter lists to their values 
   - function that gets a functions environment (still somewhat confused on what he means by this)
   - handling recursion
-  - functions within functions
+  	- functions within functions (related)
+ 
+
+-In progress:
+	-interpreting functions
+		-interpreting functions should work identically to main, just with binding
+		params now
+		-how do function closures work? is there anything in place right now?
+
+-Completed:
