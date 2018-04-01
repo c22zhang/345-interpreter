@@ -37,7 +37,7 @@
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
-     ;; ((eq? 'funcall (statement-type statement)) (error "do something to go to function"))
+      ((eq? 'funcall (statement-type statement)) (M-state-function statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
       ((eq? 'continue (statement-type statement)) (continue environment))
@@ -51,7 +51,19 @@
 (define run-main
   (lambda (environment return break continue throw)
     ;;(get-function-body 'main environment)))
-   (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
+   (interpret-statement-list (get-function-body 'main environment) (push-frame environment) return break continue throw)))
+
+(define interpret-statement-list-for-env
+  (lambda (statement-list environment return break continue throw)
+    (if (null? statement-list)
+        environment
+        (interpret-statement-list-for-env (cdr statement-list) (interpret-statement-for-env (car statement-list) environment return break continue throw) return break continue throw))))
+
+(define interpret-statement-for-env
+  (lambda (statement environment return break continue throw)
+    (if (eq? 'return (statement-type statement))
+        (return environment)
+        (interpret-statement statement environment return break continue throw)))))
 
 ; gets the function body for a specified function
 (define get-function-body
@@ -114,8 +126,29 @@
 
 (define funcall-name cadr)
 
-;interprets functions
+(define M-state-function
+  (lambda (funcall environment)
+    (call/cc
+     (lambda (func-return)
+       (M-state-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                                  (lambda (v env) (myerror "Uncaught exception thrown")))))))
+
+(define M-state-function-helper
+  (lambda (funcall environment return break continue throw)
+    (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment)
+                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment) funcall environment)
+                                                 return break continue throw)))
+
+; reinitializes the continuations for M-value-function
 (define M-value-function
+  (lambda (funcall environment)
+    (call/cc
+     (lambda (func-return)
+       (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                                  (lambda (v env) (myerror "Uncaught exception thrown")))))))
+
+;interprets functions
+(define M-value-function-helper
   (lambda (funcall environment return break continue throw)
     (interpret-statement-list (get-function-body (funcall-name funcall) environment)
                                                  (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment) funcall environment)
@@ -239,6 +272,7 @@
   (lambda (expr environment)
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment)))
+      ((eq? 'funcall (operator expr)) (M-value-function expr environment))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment) environment)))))
 
