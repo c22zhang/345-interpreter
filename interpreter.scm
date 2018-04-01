@@ -114,8 +114,16 @@
 
 (define funcall-name cadr)
 
-;interprets functions
+; reinitializes the continuations for M-value-function
 (define M-value-function
+  (lambda (funcall environment)
+    (call/cc
+     (lambda (func-return)
+       (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                                  (lambda (v env) (myerror "Uncaught exception thrown")))))))
+
+;interprets functions
+(define M-value-function-helper
   (lambda (funcall environment return break continue throw)
     (interpret-statement-list (get-function-body (funcall-name funcall) environment)
                                                  (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment) funcall environment)
@@ -239,6 +247,7 @@
   (lambda (expr environment)
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment)))
+      ((eq? 'funcall (operator expr)) (M-value-function expr environment))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment) environment)))))
 
