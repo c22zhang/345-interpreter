@@ -53,17 +53,19 @@
     ;;(get-function-body 'main environment)))
    (interpret-statement-list (get-function-body 'main environment) (push-frame environment) return break continue throw)))
 
+; statement-list interpreter for when you want to return states instead of values
 (define interpret-statement-list-for-env
   (lambda (statement-list environment return break continue throw)
     (if (null? statement-list)
         environment
         (interpret-statement-list-for-env (cdr statement-list) (interpret-statement-for-env (car statement-list) environment return break continue throw) return break continue throw))))
 
+; statement interpreter that returns states instead of values
 (define interpret-statement-for-env
   (lambda (statement environment return break continue throw)
     (if (eq? 'return (statement-type statement))
         (return environment)
-        (interpret-statement statement environment return break continue throw)))))
+        (interpret-statement statement environment return break continue throw))))
 
 ; gets the function body for a specified function
 (define get-function-body
@@ -92,10 +94,12 @@
 ; TODO: have this evaluate variables
 (define generate-param-bindings
   (lambda (func-name environment func-call)
-    (if (null? (cddr func-call))
-        (newframe)
-        (list (car (get-function-closure func-name environment)) (eval-params (cddr func-call) environment)))))
+    (cond
+      ((null? (cddr func-call)) (newframe))
+      ((not (eq? (length (car (get-function-closure func-name environment))) (length (eval-params (cddr func-call) environment)))) (myerror "Mismatched parameters and arguments"))
+      (else (list (car (get-function-closure func-name environment)) (eval-params (cddr func-call) environment))))))
 
+; evaluates parameters for functions
 (define eval-params
   (lambda (params-list environment)
     (cond
@@ -126,6 +130,7 @@
 
 (define funcall-name cadr)
 
+; M-state for function for when the return value of a function is not being used
 (define M-state-function
   (lambda (funcall environment)
     (call/cc
@@ -133,6 +138,7 @@
        (M-state-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown")))))))
 
+; helper for M-state-function that reinitializes the continuations
 (define M-state-function-helper
   (lambda (funcall environment return break continue throw)
     (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment)
