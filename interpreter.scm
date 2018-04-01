@@ -80,7 +80,13 @@
 ; TODO: have this evaluate variables
 (define generate-param-bindings
   (lambda (func-name environment func-call)
-    (list (car (get-function-closure func-name environment)) (cddr func-call))))
+    (list (car (get-function-closure func-name environment)) (eval-params (cddr func-call) environment))))
+
+(define eval-params
+  (lambda (params-list environment)
+    (cond
+      ((null? params-list) '())
+      (else (cons (eval-expression (car params-list) environment) (eval-params (cdr params-list) environment))))))
     
 ; Does the first outer level parse of global variables and functions
 (define global-level-parse
@@ -96,12 +102,21 @@
 ;TODO: REPLACE FUNC-ENV
 (define insert-function
   (lambda (statement environment)
-    (insert (function-name statement) (function-closure statement (lambda(func-env) func-env)) environment)))
+    (insert (function-name statement)
+            (function-closure statement (lambda(name closure call env) (generate-func-env name closure call env))) environment)))
 
+; evaluates the function environment function stored in the closure to get all bindings in scope for a function call
+(define evaluate-func-env
+  (lambda (name closure call env)
+    ((caddr (get-function-closure name env)) name closure call env)))
+
+(define funcall-name cadr)
 ;interprets functions
 (define M-state-function
-  (lambda (func environment return break continue throw)
-    (interpret-statement-list (get-function-body (functionName func) environment) environment return break continue throw)))
+  (lambda (funcall environment return break continue throw)
+    (interpret-statement-list (get-function-body (funcall-name funcall)
+                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure name env) funcall environment)
+                                                 return break continue throw))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
