@@ -64,6 +64,24 @@
     ;don't question it, it just works
     (eval-expression func-name environment)))
 
+; will work currently for 
+(define generate-func-env
+  (lambda (func-name function-closure func-call environment)
+    (cons (generate-param-bindings func-name environment func-call) (get-global-layer environment))))
+
+; gets the layer w/ global function and variable declarations
+(define get-global-layer
+  (lambda (environment)
+    (cond
+      ((null? (cdr environment)) environment)
+      (else (get-global-layer (cdr environment))))))
+
+;(list (list (car (get-function-closure 'fib (global-level-parse (parser "test4.txt") '((()()))))) (cddr '(funcall fib 10))))
+; TODO: have this evaluate variables
+(define generate-param-bindings
+  (lambda (func-name environment func-call)
+    (list (car (get-function-closure func-name environment)) (cddr func-call))))
+    
 ; Does the first outer level parse of global variables and functions
 (define global-level-parse
   (lambda (statement-list environment)
