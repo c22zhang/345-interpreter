@@ -13,7 +13,7 @@
     (scheme->language
      (call/cc
       (lambda (return)
-        (run-main (global-level-parse (parser file) newenvironment) return
+        (run-main (global-level-parse (parser file) (newenvironment)) return
                                   (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
@@ -46,19 +46,19 @@
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
-(define individual-statement car)
-(define env-names caar)
-(define env-values caadar)
-(define func-body cadr)
 
+
+; interprets the main function of the file
 (define run-main
   (lambda (environment return break continue throw)
     (interpret-statement-list (get-function-body 'main environment) environment return break continue throw)))
 
+; gets the function body for a specified function
 (define get-function-body
   (lambda (func-name environment)
     (func-body (get-function-closure func-name environment))))
 
+;gets the function closure for a specified function
 (define get-function-closure
   (lambda (func-name environment)
     ;don't question it, it just works
@@ -235,10 +235,6 @@
 (define operand1 cadr)
 (define operand2 caddr)
 (define operand3 cadddr)
-(define function-name cadr)
-(define function-parameters caddr)
-(define function-body cadddr)
-(define remaining-statements cdr)
 
 (define exists-operand2?
   (lambda (statement)
@@ -247,6 +243,16 @@
 (define exists-operand3?
   (lambda (statement)
     (not (null? (cdddr statement)))))
+
+; Helper functions for interpreter part 3
+(define function-name cadr)
+(define function-parameters caddr)
+(define function-body cadddr)
+(define remaining-statements cdr)
+(define individual-statement car)
+(define env-names caar)
+(define env-values caadar)
+(define func-body cadr)
 
 ; these helper functions define the parts of the various statement types
 (define statement-type operator)
