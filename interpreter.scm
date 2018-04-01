@@ -113,12 +113,14 @@
     ((caddr (get-function-closure name env)) name closure call env)))
 
 (define funcall-name cadr)
-
-;interprets functions
+    
+;interprets functions->is this actually useful? Is it changing the environment?
 (define M-value-function
   (lambda (funcall environment return break continue throw)
     (interpret-statement-list (get-function-body (funcall-name funcall) environment)
-                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment) funcall environment)
+                                                 (evaluate-func-env (funcall-name funcall)
+                                                                    (get-function-closure (funcall-name funcall) environment)
+                                                                    funcall environment)
                                                  return break continue throw)))
 
 ; Calls the return continuation with the given expression value
