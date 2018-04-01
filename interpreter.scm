@@ -37,7 +37,7 @@
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
-     ;; ((eq? 'funcall (statement-type statement)) (error "do something to go to function"))
+      ((eq? 'funcall (statement-type statement)) (M-value-func statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
       ((eq? 'continue (statement-type statement)) (continue environment))
@@ -113,10 +113,23 @@
     ((caddr (get-function-closure name env)) name closure call env)))
 
 (define funcall-name cadr)
-    
-;interprets functions->is this actually useful? Is it changing the environment?
-; reinitializes the continuations for M-value-function
+
+;;helper method for M-value-function, determines if function has return stmt
+(define hasReturn?
+  (lambda (funcall environment)
+   ;; (cond
+      ;;get func body, see if it contains return statement
+      #t))
+
+;;main controller for functions
 (define M-value-function
+  (lambda (funcall environment)
+    (if (hasReturn? funcall environment)
+        (M-value-func funcall environment)
+        (M-state-func funcall environment))))
+
+; reinitializes the continuations for M-value-function
+(define M-value-func
   (lambda (funcall environment)
     (call/cc
      (lambda (func-return)
