@@ -90,7 +90,7 @@
   (lambda (func-name environment)
     (cond
       ((null? (cdr environment)) environment)
-      ((exists? func-name environment) environment)
+      ((exists-in-list? func-name (caar environment)) environment)
       (else (get-layers-in-scope func-name (cdr environment))))))
 
 ;(list (list (car (get-function-closure 'fib (global-level-parse (parser "test4.txt") '((()()))))) (cddr '(funcall fib 10))))
@@ -202,12 +202,12 @@
 ; Interprets a block.  The break, continue, and throw continuations must be adjusted to pop the environment
 (define interpret-block
   (lambda (statement environment return break continue throw)
-    (pop-frame (interpret-statement-list (cdr statement)
+    (interpret-statement-list (cdr statement)
                                          (push-frame environment)
                                          return
                                          (lambda (env) (break (pop-frame env)))
                                          (lambda (env) (continue (pop-frame env)))
-                                         (lambda (v env) (throw v (pop-frame env)))))))
+                                         (lambda (v env) (throw v env)))))
 
 ; We use a continuation to throw the proper value. Because we are not using boxes, the environment/state must be thrown as well so any environment changes will be kept
 (define interpret-throw
