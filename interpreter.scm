@@ -1,3 +1,8 @@
+; Chris Zhang
+; Jeremy Chan
+; EECS 345
+; Interpreter Part 3
+
 ; If you are using racket instead of scheme, uncomment these two lines, comment the (load "simpleParser.scm") and uncomment the (require "simpleParser.scm")
 ; #lang racket
 ; (require "simpleParser.scm")
