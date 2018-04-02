@@ -36,6 +36,7 @@
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
+      ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement))) (interpret-assign statement (M-state-function (caddr statement) environment)))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
       ((eq? 'funcall (statement-type statement)) (M-state-function statement environment))
       ((eq? 'function (statement-type statement)) (insert-function statement environment))
@@ -82,14 +83,15 @@
 ; will work currently for 
 (define generate-func-env
   (lambda (func-name function-closure func-call environment)
-    (cons (generate-param-bindings func-name environment func-call) (get-layers-in-scope environment))))
+    (cons (generate-param-bindings func-name environment func-call) (get-layers-in-scope func-name environment))))
 
 ; gets the layer w/ global function and variable declarations
 (define get-layers-in-scope
-  (lambda (environment)
+  (lambda (func-name environment)
     (cond
       ((null? (cdr environment)) environment)
-      (else (get-layers-in-scope (cdr environment))))))
+      ((exists? func-name environment) environment)
+      (else (get-layers-in-scope func-name (cdr environment))))))
 
 ;(list (list (car (get-function-closure 'fib (global-level-parse (parser "test4.txt") '((()()))))) (cddr '(funcall fib 10))))
 ; TODO: have this evaluate variables
@@ -151,7 +153,7 @@
   (lambda (funcall environment)
     (call/cc
      (lambda (func-return)
-       (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+        (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown")))))))
 
 ;interprets functions
