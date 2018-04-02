@@ -155,7 +155,6 @@
      (lambda (func-return)
         (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   throw)))))
-
 ;interprets functions
 (define M-value-function-helper
   (lambda (funcall environment return break continue throw)
