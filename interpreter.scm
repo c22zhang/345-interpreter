@@ -38,6 +38,7 @@
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
       ((eq? 'funcall (statement-type statement)) (M-state-function statement environment))
+      ((eq? 'function (statement-type statement)) (insert-function statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
       ((eq? 'continue (statement-type statement)) (continue environment))
@@ -81,14 +82,14 @@
 ; will work currently for 
 (define generate-func-env
   (lambda (func-name function-closure func-call environment)
-    (cons (generate-param-bindings func-name environment func-call) (get-global-layer environment))))
+    (cons (generate-param-bindings func-name environment func-call) (get-layers-in-scope environment))))
 
 ; gets the layer w/ global function and variable declarations
-(define get-global-layer
+(define get-layers-in-scope
   (lambda (environment)
     (cond
       ((null? (cdr environment)) environment)
-      (else (get-global-layer (cdr environment))))))
+      (else (get-layers-in-scope (cdr environment))))))
 
 ;(list (list (car (get-function-closure 'fib (global-level-parse (parser "test4.txt") '((()()))))) (cddr '(funcall fib 10))))
 ; TODO: have this evaluate variables
