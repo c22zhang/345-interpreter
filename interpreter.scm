@@ -521,8 +521,6 @@
       ((eq? v #t) 'true)
       (else v))))
 
-
-
 ; Because the error function is not defined in R5RS scheme, I create my own:
 (define error-break (lambda (v) v))
 (call-with-current-continuation (lambda (k) (set! error-break k)))
