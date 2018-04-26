@@ -24,6 +24,7 @@
                                   (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 (define class-name cadr)
+(define class-extension caddr)
 (define class-body cadddr)
 
 (define multi-class-level-parse
@@ -36,7 +37,8 @@
 ; generates a class closure for a single class
 (define generate-class-closure
   (lambda (class-statement environment throw)
-    (insert (class-name class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw) environment)))
+    (insert (class-name class-statement)
+            (cons (class-extension class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
                         
 ; Does the first outer level parse of global variables and functions
 (define class-level-parse
