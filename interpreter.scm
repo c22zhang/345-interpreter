@@ -6,7 +6,7 @@
 ; If you are using racket instead of scheme, uncomment these two lines, comment the (load "simpleParser.scm") and uncomment the (require "simpleParser.scm")
 ; #lang racket
 ; (require "simpleParser.scm")
-(load "functionParser.scm")
+(load "classParser.scm")
 
 
 ; The functions that start interpret-...  all return the current environment.
@@ -18,9 +18,31 @@
     (scheme->language
      (call/cc
       (lambda (return)
+        ;REPLACE GLOBAL LEVEL PARSE
         (run-main (global-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) return
                                   (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                   (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+
+(define class-name cadr)
+(define class-body cadddr)
+  (lambda (class-statement)
+    (caddr (cdar class-statement))))
+
+(define generate-class-closure
+  (lambda (class-statement environment throw)
+    (insert (class-name class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw) environment)))
+                        
+; Does the first outer level parse of global variables and functions
+(define class-level-parse
+  (lambda (statement-list environment throw)
+    (cond
+      ((null? statement-list) environment)
+      ((eq? 'var (statement-type (individual-statement statement-list)))
+       (class-level-parse (remaining-statements statement-list) (interpret-declare (individual-statement statement-list) environment throw) throw))
+      ((or (eq? 'function (statement-type (individual-statement statement-list)))
+           (eq? 'static-function (statement-type (individual-statement statement-list))))
+       (class-level-parse (remaining-statements statement-list) (insert-function (individual-statement statement-list) environment throw) throw))
+      (else (myerror "Unsupported top-level statement: " (statement-type statement))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
 ; statement-list - what the parser returns
@@ -113,17 +135,6 @@
     (cond
       ((null? params-list) '())
       (else (cons (eval-expression (car params-list) environment throw) (eval-params (cdr params-list) environment throw))))))
-    
-; Does the first outer level parse of global variables and functions
-(define global-level-parse
-  (lambda (statement-list environment throw)
-    (cond
-      ((null? statement-list) environment)
-      ((eq? 'var (statement-type (individual-statement statement-list)))
-       (global-level-parse (remaining-statements statement-list) (interpret-declare (individual-statement statement-list) environment throw) throw))
-      ((eq? 'function (statement-type (individual-statement statement-list)))
-       (global-level-parse (remaining-statements statement-list) (insert-function (individual-statement statement-list) environment throw) throw))
-      (else (myerror "Unsupported top-level statement: " (statement-type statement))))))
 
 ;TODO: REPLACE FUNC-ENV
 (define insert-function
