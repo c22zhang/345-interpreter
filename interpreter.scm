@@ -25,9 +25,15 @@
 
 (define class-name cadr)
 (define class-body cadddr)
-  (lambda (class-statement)
-    (caddr (cdar class-statement))))
 
+(define multi-class-level-parse
+  (lambda (class-statement-list environment throw)
+    (cond
+      ((null? class-statement-list) environment)
+      (else (multi-class-level-parse (remaining-statements class-statement-list)
+                                     (generate-class-closure (individual-statement class-statement-list) environment throw) throw)))))
+
+; generates a class closure for a single class
 (define generate-class-closure
   (lambda (class-statement environment throw)
     (insert (class-name class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw) environment)))
