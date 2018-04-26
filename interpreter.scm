@@ -19,9 +19,10 @@
      (call/cc
       (lambda (return)
         ;REPLACE GLOBAL LEVEL PARSE
-        (run-main (global-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) return
-                                  (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+        (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+      ;;  (run-main (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) return
+            ;;                      (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                ;;                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 (define class-name cadr)
 (define class-extension caddr)
@@ -39,7 +40,39 @@
   (lambda (class-statement environment throw)
     (insert (class-name class-statement)
             (cons (class-extension class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
-                        
+
+(define class_Name cadr)
+
+(define generate-instance-closure
+  (lambda (statement environment throw)
+    (find-class-closure (class_Name statement) environment)))
+
+;;helper method that returns list of class closures from environment
+;;may need to be changed later depending on where in env, class closure is
+(define class-closure-list
+  (lambda (environment)
+    (car environment)))
+
+(define get-class-closure-names
+  (lambda (environment)
+    (car (class-closure-list environment))))
+
+(define get-class-closure-vals
+  (lambda (environment)
+    (cdr (class-closure-list environment))))
+
+(define find-class-closure
+  (lambda (className environment)
+    (lookup-class-closure className (get-class-closure-names environment) (get-class-closure-vals environment))))
+
+;;returns the corresponding class closure 
+(define lookup-class-closure
+  (lambda (className namesLis valsLis)
+    (cond
+      ((null? namesLis) (myerror "Class does not exist:" className))
+      ((eq? className (car namesLis)) (car valsLis))
+      (else (lookup-class-closure className (cdr namesLis) (cdr valsLis))))))
+                    
 ; Does the first outer level parse of global variables and functions
 (define class-level-parse
   (lambda (statement-list environment throw)
@@ -69,6 +102,7 @@
 (define interpret-statement
   (lambda (statement environment return break continue throw)
     (cond
+      ((eq? 'new (statement-type statement)) (generate-instance-closure statement environment return))
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement))) (interpret-assign statement (M-state-function (caddr statement) environment throw) throw))
