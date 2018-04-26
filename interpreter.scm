@@ -14,15 +14,15 @@
 
 ; The main function.  Calls parser to get the parse tree and interprets it with a new environment.  The returned value is in the environment.
 (define interpret
-  (lambda (file)
+  (lambda (file mainClass)
     (scheme->language
      (call/cc
       (lambda (return)
         ;REPLACE GLOBAL LEVEL PARSE
-        (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))))))))
-      ;;  (run-main (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) return
-            ;;                      (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                ;;                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+       ;; (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+        (run-main-class (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) mainClass return
+                                  (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                                 (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 (define class-name cadr)
 (define class-extension caddr)
@@ -119,10 +119,21 @@
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; interprets the main function of the file
+(define run-main-class
+  (lambda (environment mainClass return break continue throw)
+    (goToClass mainClass environment return break continue throw)))
+  ;; (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
+
 (define run-main
   (lambda (environment return break continue throw)
     ;;(get-function-body 'main environment)))
-   (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
+    (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
+
+;;looks for class matching className in the class closure list
+(define goToClass
+  (lambda (className environment return break continue throw)
+    (run-main (cdar (find-class-closure className environment)) return break continue throw)))
+    ;;(interpret-statement-list  (get-function-body 'main (cdar (find-class-closure className environment)) throw) (push-frame environment) return break continue throw)))
 
 ; statement-list interpreter for when you want to return states instead of values
 (define interpret-statement-list-for-env
