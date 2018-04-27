@@ -1,7 +1,9 @@
 TODO - Interpreter 4:
 -new keyword doesn't work
 -what to do with instance closures?
-
+	-the problem is when you generate a new instance closure, the env
+ 	you pass in is the closure of the main class to be used, so it doesn't
+	get the original environment and cant find the class closure to copy
 COMPLETE:
 -class closures work
 -instance closures currently just copy respective class closure
