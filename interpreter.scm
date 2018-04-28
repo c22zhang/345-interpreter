@@ -121,18 +121,31 @@
 ; interprets the main function of the file
 (define run-main-class
   (lambda (environment mainClass return break continue throw)
-    (goToClass mainClass environment return break continue throw)))
+   ;; (goToMainClass mainClass environment return break continue throw)))
+    (run-main (goToMainClass mainClass environment return break continue throw) return break continue throw)))
   ;; (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
 
+(define getMainInstance car)
+    
 (define run-main
   (lambda (environment return break continue throw)
-    ;;(get-function-body 'main environment)))
-    (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
+   ;; (get-function-body 'main environment throw)))
+    (interpret-statement-list (get-function-body 'main (getMainInstance environment) throw) (car environment) return break continue throw)))
+  ;;  (interpret-statement-list (get-function-body 'main (getMainInstance environment) throw) (push-frame environment) return break continue throw)))
 
-;;looks for class matching className in the class closure list
+(define initInstanceList
+  (lambda (environment closure)
+    (cons closure environment)))
+
+;;finds class closure, adds to instanceList
 (define goToClass
   (lambda (className environment return break continue throw)
-    (run-main (cdar (find-class-closure className environment)) return break continue throw)))
+    (addtoInstanceList environment (cdar (find-class-closure className environment)) return break continue throw)))
+
+;;goToClass, but only for finding main class!
+(define goToMainClass
+  (lambda (className environment return break continue throw)
+    (initInstanceList environment (cdar (find-class-closure className environment)) )))
     ;;(interpret-statement-list  (get-function-body 'main (cdar (find-class-closure className environment)) throw) (push-frame environment) return break continue throw)))
 
 ; statement-list interpreter for when you want to return states instead of values
@@ -348,6 +361,7 @@
 (define eval-operator
   (lambda (expr environment throw)
     (cond
+      ((eq? 'new (operator expr)) (generate-instance-closure expr environment throw))
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
