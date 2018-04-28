@@ -342,6 +342,8 @@
 
 (define func_name cadr)
 (define class-layer cadr)
+(define instance-name cadr)
+(define instance-field caddr)
 
 ; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
 ; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
@@ -351,7 +353,7 @@
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
-      ((eq? 'dot (operator expr)) (display environment))
+      ((eq? 'dot (operator expr))  (lookup (instance-field expr) (cons (cadar (lookup (instance-name expr) environment)) '()) ))
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment throw) environment throw)))))
