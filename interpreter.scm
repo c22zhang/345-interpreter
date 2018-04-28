@@ -20,7 +20,7 @@
       (lambda (return)
         ;REPLACE GLOBAL LEVEL PARSE
        ;; (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))))))))
-        (run-main-class (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) mainClass return
+        (run-main-class (multi-class-level-parse (parser file) (newenvironment) (lambda (v env) (myerror "Uncaught exception thrown"))) (string->symbol mainClass) return
                                   (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
@@ -65,6 +65,23 @@
   (lambda (className environment)
     (lookup-class-closure className (get-class-closure-names environment) (get-class-closure-vals environment))))
 
+; interprets the main function of the file
+(define run-main-class
+  (lambda (environment mainClass return break continue throw)
+    (goToClass mainClass environment return break continue throw)))
+  ;; (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
+
+(define run-main
+  (lambda (function-environment class-environment return break continue throw)
+    ;;(get-function-body 'main environment)))
+    (interpret-statement-list (get-function-body 'main function-environment throw) (push-frame class-environment) return break continue throw)))
+
+;;looks for class matching className in the class closure list
+(define goToClass
+  (lambda (className environment return break continue throw)
+    (run-main (cdar (find-class-closure className environment)) environment return break continue throw)))
+    ;;(interpret-statement-list  (get-function-body 'main (cdar (find-class-closure className environment)) throw) (push-frame environment) return break continue throw)))
+
 ;;returns the corresponding class closure 
 (define lookup-class-closure
   (lambda (className namesLis valsLis)
@@ -102,7 +119,7 @@
 (define interpret-statement
   (lambda (statement environment return break continue throw)
     (cond
-      ((eq? 'new (statement-type statement)) (generate-instance-closure statement environment return))
+      ((eq? 'new (statement-type statement)) (generate-instance-closure statement environment throw))
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement))) (interpret-assign statement (M-state-function (caddr statement) environment throw) throw))
@@ -117,23 +134,6 @@
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
-
-; interprets the main function of the file
-(define run-main-class
-  (lambda (environment mainClass return break continue throw)
-    (goToClass mainClass environment return break continue throw)))
-  ;; (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
-
-(define run-main
-  (lambda (environment return break continue throw)
-    ;;(get-function-body 'main environment)))
-    (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
-
-;;looks for class matching className in the class closure list
-(define goToClass
-  (lambda (className environment return break continue throw)
-    (run-main (cdar (find-class-closure className environment)) return break continue throw)))
-    ;;(interpret-statement-list  (get-function-body 'main (cdar (find-class-closure className environment)) throw) (push-frame environment) return break continue throw)))
 
 ; statement-list interpreter for when you want to return states instead of values
 (define interpret-statement-list-for-env
@@ -341,6 +341,7 @@
       (else (eval-operator expr environment throw)))))
 
 (define func_name cadr)
+(define class-layer cadr)
 
 ; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
 ; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
@@ -350,6 +351,7 @@
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
+      ((eq? 'new (operator expr)) (generate-instance-closure expr (class-layer environment) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment throw) environment throw)))))
 
