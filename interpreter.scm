@@ -45,7 +45,7 @@
 
 (define generate-instance-closure
   (lambda (statement environment throw)
-    (find-class-closure (class_Name statement) environment)))
+    (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
 
 ;;helper method that returns list of class closures from environment
 ;;may need to be changed later depending on where in env, class closure is
@@ -353,7 +353,7 @@
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
-      ((eq? 'dot (operator expr))  (lookup (instance-field expr) (cons (cadar (lookup (instance-name expr) environment)) '()) ))
+      ((eq? 'dot (operator expr)) (display (cdarr (lookup (instance-name expr) environment))) (newline)) ; (lookup (instance-field expr) (cadar (lookup (instance-name expr) environment))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment throw) environment throw)))))
