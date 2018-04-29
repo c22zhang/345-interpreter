@@ -105,7 +105,7 @@
       ((or (eq? 'function (statement-type (individual-statement statement-list)))
            (eq? 'static-function (statement-type (individual-statement statement-list))))
        (class-level-parse (remaining-statements statement-list) (insert-function (individual-statement statement-list) environment throw) throw))
-      (else (myerror "Unsupported top-level statement: " (statement-type statement))))))
+      (else (myerror "Unsupported top-level statement: " (statement-type statement-list))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
 ; statement-list - what the parser returns
@@ -128,9 +128,15 @@
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement)))
-       (interpret-assign statement (M-state-function (caddr statement) environment throw (get-class-type-from-closure (lhs-dot expr) environment)) throw))
+       (interpret-assign statement
+                         (M-state-function (caddr statement) environment throw
+                                           (get-class-type-from-closure (lhs-dot statement) environment)
+                                           (lookup (lhs-dot statement) environment)))
+                         throw)
       ((eq? '= (statement-type statement)) (interpret-assign statement environment throw))
-      ((eq? 'funcall (statement-type statement)) (M-state-function statement environment throw (get-class-type-from-closure (lhs-dot expr) environment)))
+      ((eq? 'funcall (statement-type statement)) (M-state-function statement environment throw
+                                                                   (get-class-type-from-closure (lhs-dot statement) environment)
+                                                                   (lookup (lhs-dot statement) environment)))
       ((eq? 'function (statement-type statement)) (insert-function statement environment throw))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
@@ -166,10 +172,10 @@
     ;don't question it, it just works
     (eval-expression func-name environment throw)))
 
-; will work currently for 
+; will work currently  
 (define generate-func-env
-  (lambda (func-name function-closure func-call environment throw)
-    (cons (generate-param-bindings func-name environment func-call throw) (get-layers-in-scope func-name environment))))
+  (lambda (func-name function-closure func-call environment throw this)
+    (cons (generate-param-bindings func-name environment func-call throw this) (get-layers-in-scope func-name environment))))
 
 ; gets the layer w/ global function and variable declarations
 (define get-layers-in-scope
@@ -179,14 +185,13 @@
       ((exists-in-list? func-name (caar environment)) environment)
       (else (get-layers-in-scope func-name (cdr environment))))))
 
-;(list (list (car (get-function-closure 'fib (global-level-parse (parser "test4.txt") '((()()))))) (cddr '(funcall fib 10))))
-; TODO: have this evaluate variables
 (define generate-param-bindings
-  (lambda (func-name environment func-call throw)
+  (lambda (func-name environment func-call throw this)
     (cond
       ((null? (cddr func-call)) (newframe))
       ((not (eq? (length (car (get-function-closure func-name environment throw))) (length (eval-params (cddr func-call) environment throw)))) (myerror "Mismatched parameters and arguments"))
-      (else (list (car (get-function-closure func-name environment throw)) (eval-params (cddr func-call) environment throw))))))
+      ;(else (display(get-function-closure func-name environment throw))))))
+      (else (list (cons 'this (car (get-function-closure func-name environment throw))) (cons this (eval-params (cddr func-call) environment throw)))))))
 
 ; evaluates parameters for functions
 (define eval-params
@@ -199,42 +204,44 @@
 (define insert-function
   (lambda (statement environment throw)
     (insert (function-name statement)
-            (function-closure statement (lambda(name closure call env throw) (generate-func-env name closure call env throw))) environment)))
+            ; FUNCTION THAT GENERATES THE FUNCTION CLOSURE
+            (function-closure statement (lambda (name closure call env throw this) (generate-func-env name closure call env throw this))) environment)))
 
 ; evaluates the function environment function stored in the closure to get all bindings in scope for a function call
 (define evaluate-func-env
-  (lambda (name closure call env throw)
-    ((caddr (get-function-closure name env throw)) name closure call env throw)))
+  (lambda (name closure call env throw this)
+    ;THIS IS WHERE IT CALLS THE FUNCTION THAT BINDS VARIABLES REMEMBER THIS
+    ((caddr (get-function-closure name env throw)) name closure call env throw this)))
 
 (define funcall-name cadr)
 
 ; M-state for function for when the return value of a function is not being used
 (define M-state-function
-  (lambda (funcall environment throw current-type)
+  (lambda (funcall environment throw current-type this)
     (call/cc
      (lambda (func-return)
        (M-state-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  throw current-type)))))
+                                  throw current-type this)))))
 
 ; helper for M-state-function that reinitializes the continuations
 (define M-state-function-helper
-  (lambda (funcall environment return break continue throw current-type)
+  (lambda (funcall environment return break continue throw current-type this)
     (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment throw)
-                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw)
+                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw this)
                                                  return break continue throw)))
 
 ; reinitializes the continuations for M-value-function
 (define M-value-function
-  (lambda (funcall environment throw current-type)
+  (lambda (funcall environment throw current-type this)
     (call/cc
      (lambda (func-return)
         (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  throw current-type)))))
+                                  throw current-type this)))))
 ;interprets functions
 (define M-value-function-helper
-  (lambda (funcall environment return break continue throw current-type)
+  (lambda (funcall environment return break continue throw current-type this)
     (interpret-statement-list (get-function-body (funcall-name funcall) environment throw)
-                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw)
+                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw this)
                                                  return break continue throw)))
 
 ; Calls the return continuation with the given expression value
@@ -365,7 +372,7 @@
   (lambda (expr environment throw)
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
-      ((eq? 'funcall (operator expr)) (M-value-function expr environment throw (get-class-type-from-closure (lhs-dot expr) environment)))
+      ((eq? 'funcall (operator expr)) (M-value-function expr environment throw (get-class-type-from-closure (lhs-dot expr) environment) (lookup (lhs-dot expr) environment)))
       ((eq? 'dot (operator expr)) (lookup (instance-field expr) (list (caddar (lookup (instance-name expr) environment)))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
