@@ -43,9 +43,14 @@
 
 (define class_Name cadr)
 
+;generates the instance closure upon instantiation of an object
 (define generate-instance-closure
   (lambda (statement environment throw)
-    (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+     (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+
+(define bind-this-to-closure
+  (lambda (closure class-type extension environment)
+    (find-class-closure class-type environment)))
 
 ;;helper method that returns list of class closures from environment
 ;;may need to be changed later depending on where in env, class closure is
@@ -122,9 +127,10 @@
       ((eq? 'new (statement-type statement)) (generate-instance-closure statement environment throw))
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
-      ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement))) (interpret-assign statement (M-state-function (caddr statement) environment throw) throw))
+      ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement)))
+       (interpret-assign statement (M-state-function (caddr statement) environment throw (get-class-type-from-closure (lhs-dot expr) environment)) throw))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment throw))
-      ((eq? 'funcall (statement-type statement)) (M-state-function statement environment throw))
+      ((eq? 'funcall (statement-type statement)) (M-state-function statement environment throw (get-class-type-from-closure (lhs-dot expr) environment)))
       ((eq? 'function (statement-type statement)) (insert-function statement environment throw))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
       ((eq? 'while (statement-type statement)) (interpret-while statement environment return throw))
@@ -204,29 +210,29 @@
 
 ; M-state for function for when the return value of a function is not being used
 (define M-state-function
-  (lambda (funcall environment throw)
+  (lambda (funcall environment throw current-type)
     (call/cc
      (lambda (func-return)
        (M-state-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  throw)))))
+                                  throw current-type)))))
 
 ; helper for M-state-function that reinitializes the continuations
 (define M-state-function-helper
-  (lambda (funcall environment return break continue throw)
+  (lambda (funcall environment return break continue throw current-type)
     (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment throw)
                                                  (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw)
                                                  return break continue throw)))
 
 ; reinitializes the continuations for M-value-function
 (define M-value-function
-  (lambda (funcall environment throw)
+  (lambda (funcall environment throw current-type)
     (call/cc
      (lambda (func-return)
         (M-value-function-helper funcall environment func-return (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  throw)))))
+                                  throw current-type)))))
 ;interprets functions
 (define M-value-function-helper
-  (lambda (funcall environment return break continue throw)
+  (lambda (funcall environment return break continue throw current-type)
     (interpret-statement-list (get-function-body (funcall-name funcall) environment throw)
                                                  (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw)
                                                  return break continue throw)))
@@ -344,6 +350,13 @@
 (define class-layer cadr)
 (define instance-name cadr)
 (define instance-field caddr)
+(define compile-time-class caaar)
+(define lhs-dot cadadr)
+
+(define get-class-type-from-closure
+  (lambda (object-name environment)
+    (compile-time-class (lookup object-name environment))))
+    
 
 ; Evaluate a binary (or unary) operator.  Although i is not dealing with side effects, I have the routine evaluate the left operand first and then
 ; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
@@ -352,7 +365,7 @@
   (lambda (expr environment throw)
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
-      ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
+      ((eq? 'funcall (operator expr)) (M-value-function expr environment throw (get-class-type-from-closure (lhs-dot expr) environment)))
       ((eq? 'dot (operator expr)) (lookup (instance-field expr) (list (caddar (lookup (instance-name expr) environment)))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
