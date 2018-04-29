@@ -259,7 +259,12 @@
 ; Updates the environment to add an new binding for a variable
 (define interpret-assign
   (lambda (statement environment throw)
-    (update (get-assign-lhs statement) (eval-expression (get-assign-rhs statement) environment throw) environment)))
+    (cond
+      ;THE BELOW LINE SHOULD BE UPDATED WITH AN UPDATE FUNCTION THAT SEARCHES AND UPDATES IN "THIS"
+      ;just uncomment it when you get it working - if you run test4 rn itll complain about some symbol->string error
+      ;just know that it's caused by the interpreter trying to update (dot this x) in the top level state so you're gonna have to fix it
+     ;((eq? (car (get-assign-lhs statement)) 'dot) (begin (display statement) (newline) (display environment)))
+     (update (get-assign-lhs statement) (eval-expression (get-assign-rhs statement) environment throw) environment)))
 
 ; We need to check if there is an else condition.  Otherwise, we evaluate the expression and do the right thing.
 (define interpret-if
