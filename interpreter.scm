@@ -124,7 +124,7 @@
 (define interpret-statement
   (lambda (statement environment return break continue throw)
     (cond
-      ((eq? 'new (statement-type statement)) (generate-instance-closure statement environment throw))
+      ((eq? 'new (statement-type statement))  (generate-instance-closure statement environment throw))
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement)))
@@ -200,17 +200,15 @@
       ((null? params-list) '())
       (else (cons (eval-expression (car params-list) environment throw) (eval-params (cdr params-list) environment throw))))))
 
-;TODO: REPLACE FUNC-ENV
+;inserts a function and its closure into the environment as a variable/value pair
 (define insert-function
   (lambda (statement environment throw)
     (insert (function-name statement)
-            ; FUNCTION THAT GENERATES THE FUNCTION CLOSURE
             (function-closure statement (lambda (name closure call env throw this) (generate-func-env name closure call env throw this))) environment)))
 
 ; evaluates the function environment function stored in the closure to get all bindings in scope for a function call
 (define evaluate-func-env
   (lambda (name closure call env throw this)
-    ;THIS IS WHERE IT CALLS THE FUNCTION THAT BINDS VARIABLES REMEMBER THIS
     ((caddr (get-function-closure name env throw)) name closure call env throw this)))
 
 (define funcall-name cadr)
@@ -259,12 +257,36 @@
 ; Updates the environment to add an new binding for a variable
 (define interpret-assign
   (lambda (statement environment throw)
-    (cond
-      ;THE BELOW LINE SHOULD BE UPDATED WITH AN UPDATE FUNCTION THAT SEARCHES AND UPDATES IN "THIS"
-      ;just uncomment it when you get it working - if you run test4 rn itll complain about some symbol->string error
+      ;this function should be updated with an update function the updates the relevant non-static field in "this" 
+      ;if you run test4 rn itll complain about some symbol->string error
       ;just know that it's caused by the interpreter trying to update (dot this x) in the top level state so you're gonna have to fix it
+
+     ;this line was just some debug info i was printing earlier
      ;((eq? (car (get-assign-lhs statement)) 'dot) (begin (display statement) (newline) (display environment)))
-     (update (get-assign-lhs statement) (eval-expression (get-assign-rhs statement) environment throw) environment)))
+    (cond
+     ((eq? 'dot (caadr statement))
+      (update
+       (lhs-dot statement)
+       (get-updated-instance-closure
+               (rhs-dot statement)
+               (eval-expression (new-value statement) environment throw)
+               (lookup (lhs-dot statement) environment))
+       environment))
+     (else (update (get-assign-lhs statement) (eval-expression (get-assign-rhs statement) environment throw) environment)))))
+
+(define class-type caar)
+(define class-parent cadar)
+(define class-closure-body caddar)
+(define updated-closure car)
+
+;updates a field within an instance closure
+(define get-updated-instance-closure
+  (lambda (field-name new-value closure)
+    (list
+     (list
+      (class-type closure)
+      (class-parent closure)
+      (updated-closure (update field-name new-value (list (class-closure-body closure))))))))
 
 ; We need to check if there is an else condition.  Otherwise, we evaluate the expression and do the right thing.
 (define interpret-if
@@ -364,6 +386,11 @@
 (define instance-field caddr)
 (define compile-time-class caaar)
 (define lhs-dot cadadr)
+(define rhs-dot
+  (lambda (x)
+    (caddr (cadr x))))
+(define new-value caddr)
+
 
 (define get-class-type-from-closure
   (lambda (object-name environment)
@@ -377,7 +404,11 @@
   (lambda (expr environment throw)
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
-      ((eq? 'funcall (operator expr)) (M-value-function expr environment throw (get-class-type-from-closure (lhs-dot expr) environment) (lookup (lhs-dot expr) environment)))
+      ((eq? 'funcall (operator expr)) (M-value-function expr
+                                                        environment
+                                                        throw
+                                                        (get-class-type-from-closure (lhs-dot expr) environment)
+                                                        (lookup (lhs-dot expr) environment)))
       ((eq? 'dot (operator expr)) (lookup (instance-field expr) (list (caddar (lookup (instance-name expr) environment)))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
