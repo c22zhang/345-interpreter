@@ -45,7 +45,7 @@
 
 (define generate-instance-closure
   (lambda (statement environment throw)
-    (find-class-closure (class_Name statement) environment)))
+    (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
 
 ;;helper method that returns list of class closures from environment
 ;;may need to be changed later depending on where in env, class closure is
@@ -134,37 +134,6 @@
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
-
-; interprets the main function of the file
-(define run-main-class
-  (lambda (environment mainClass return break continue throw)
-   ;; (goToMainClass mainClass environment return break continue throw)))
-    (run-main (goToMainClass mainClass environment return break continue throw) return break continue throw)))
-  ;; (interpret-statement-list (get-function-body 'main environment throw) (push-frame environment) return break continue throw)))
-
-(define getMainInstance car)
-    
-(define run-main
-  (lambda (environment return break continue throw)
-   ;; (get-function-body 'main environment throw)))
-    (interpret-statement-list (get-function-body 'main (getMainInstance environment) throw) (car environment) return break continue throw)))
-  ;;  (interpret-statement-list (get-function-body 'main (getMainInstance environment) throw) (push-frame environment) return break continue throw)))
-
-(define initInstanceList
-  (lambda (environment closure)
-    (cons closure environment)))
-
-;;finds class closure, adds to instanceList
-(define goToClass
-  (lambda (className environment return break continue throw)
-    (addtoInstanceList environment (cdar (find-class-closure className environment)) return break continue throw)))
-
-;;goToClass, but only for finding main class!
-(define goToMainClass
-  (lambda (className environment return break continue throw)
-    (initInstanceList environment (cdar (find-class-closure className environment)) )))
-    ;;(interpret-statement-list  (get-function-body 'main (cdar (find-class-closure className environment)) throw) (push-frame environment) return break continue throw)))
-
 
 ; statement-list interpreter for when you want to return states instead of values
 (define interpret-statement-list-for-env
@@ -373,17 +342,18 @@
 
 (define func_name cadr)
 (define class-layer cadr)
+(define instance-name cadr)
+(define instance-field caddr)
 
-; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
+; Evaluate a binary (or unary) operator.  Although i is not dealing with side effects, I have the routine evaluate the left operand first and then
 ; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
 ; to add side effects to the interpreter
 (define eval-operator
   (lambda (expr environment throw)
     (cond
-      ((eq? 'new (operator expr)) (generate-instance-closure expr environment throw))
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr environment throw))
-      ((eq? 'dot (operator expr)) (display environment))
+      ((eq? 'dot (operator expr)) (lookup (instance-field expr) (list (caddar (lookup (instance-name expr) environment)))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment throw) environment throw)))))
@@ -607,8 +577,7 @@
     (cond
       ((null? (function-name function-def)) (myerror "error: invalid function definition"))
       (else (list (function-parameters function-def) (function-body function-def) env-func)))))
-      
-
+     
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
 (define language->scheme
@@ -637,5 +606,4 @@
                         (if (null? vals)
                             str
                             (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
-      (error-break (display (string-append str (makestr "" vals)))))))
-
+(error-break (display (string-append str (makestr "" vals)))))))

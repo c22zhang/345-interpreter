@@ -1,6 +1,10 @@
 class A {
-  var x = 1;
+  function f() {
+    return 5;
+  }
+
   static function main() {
-    return x;
+    var a = new A();
+    return a.f();
   }
 }
