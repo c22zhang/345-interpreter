@@ -1,4 +1,10 @@
 TODO - Interpreter 4:
+- So for test6 stuff, the problem current is in line 204 under eval params that starts with ((list?(car params-list)))
+	- Basically what it does is that it binds the formal parameters of the function to the actual values. What I'm doing rn is that i'm binding it to the instance  closures of the parameters (since they are being passed in as "new A()" instead of normal variables. The problem is that I don't know how to evaluate the closures for the actual field values for something like '(dot (new A) x) and it just returns the full instance closure.
+	- If you do fix this, i think the best way would be to somehow modify eval-expression to resolve the value '(new A) to its actual instance closure, which I can't currently because how we do it rn is that we're looking for the actual binding of the object.
+	
+
+
 -currently its not reading the values of different class correctly
 -problem arises if there are multiple classes in same file and another class being called from main 
 	-this is happenign before generate-instance-closure
