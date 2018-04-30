@@ -35,11 +35,32 @@
       (else (multi-class-level-parse (remaining-statements class-statement-list)
                                      (generate-class-closure (individual-statement class-statement-list) environment throw) throw)))))
 
-; generates a class closure for a single class
+(define extendsStmt caddr)
+(define class-dec-name cadr)
+
+; controller wrapper that generates class closure 
 (define generate-class-closure
   (lambda (class-statement environment throw)
+    (cond
+      ((eq? (null? (extendsStmt class-statement)) #f)
+       (generate-inherited-class-closure class-statement environment throw))
+      (else (generate-class-closure-helper class-statement environment throw)))))
+
+;;for generating closure of inherited class
+(define generate-inherited-class-closure
+  (lambda (class-statement environment throw)
+   ;; (display (cadr (extendsStmt class-statement)))))
     (insert (class-name class-statement)
-            (cons (class-extension class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
+            (cons (find-class-closure (cadr (extendsStmt class-statement)) environment)
+                  (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
+  ;;  (addParentClosure (class-dec-name class-statement) (cadr (extendsStmt class-statement)) (generate-class-closure-helper class-statement environment throw))))
+
+  
+;;for generating closure of a class
+(define generate-class-closure-helper
+  (lambda (class-statement environment throw)
+    (insert (class-name class-statement)
+            (cons '() (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
 
 (define class_Name cadr)
 
