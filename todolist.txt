@@ -1,4 +1,10 @@
 TODO - Interpreter 4:
+-currently its not reading the values of different class correctly
+-problem arises if there are multiple classes in same file and another class being called from main 
+	-this is happenign before generate-instance-closure
+		-perhaps an issue with how get-value is working?
+-double check if envrionemtn is correct after running test.txt
+
 -new keyword doesn't work
 -what to do with instance closures?
 	-the problem is when you generate a new instance closure, the env

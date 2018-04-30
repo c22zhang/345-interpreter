@@ -35,8 +35,29 @@
       (else (multi-class-level-parse (remaining-statements class-statement-list)
                                      (generate-class-closure (individual-statement class-statement-list) environment throw) throw)))))
 
-; generates a class closure for a single class
+(define extendsStmt caddr)
+(define class-dec-name cadr)
+
+; controller wrapper that generates class closure 
 (define generate-class-closure
+  (lambda (class-statement environment throw)
+    (cond
+      ((eq? (null? (extendsStmt class-statement)) #f)
+       (generate-inherited-class-closure class-statement environment throw))
+      (else (generate-class-closure-helper class-statement environment throw)))))
+
+;;for generating closure of inherited class
+(define generate-inherited-class-closure
+  (lambda (class-statement environment throw)
+   ;; (display (cadr (extendsStmt class-statement)))))
+    (insert (class-name class-statement)
+            (cons (find-class-closure (cadr (extendsStmt class-statement)) environment)
+                  (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
+  ;;  (addParentClosure (class-dec-name class-statement) (cadr (extendsStmt class-statement)) (generate-class-closure-helper class-statement environment throw))))
+
+
+;;for generating closure of a class
+(define generate-class-closure-helper
   (lambda (class-statement environment throw)
     (insert (class-name class-statement)
             (cons (class-extension class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
@@ -46,7 +67,11 @@
 ;generates the instance closure upon instantiation of an object
 (define generate-instance-closure
   (lambda (statement environment throw)
-     (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+    (display environment)))
+    ;; (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+
+;;(((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:232:40>)))) (() ((x) (10))))))
+;;(((a) ((((B))))) ((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:235:40>)))) (() ((x) (10))))))
 
 (define bind-this-to-closure
   (lambda (closure class-type extension environment)
@@ -93,7 +118,8 @@
     (cond
       ((null? namesLis) (myerror "Class does not exist:" className))
       ((eq? className (car namesLis)) (car valsLis))
-      (else (lookup-class-closure className (cdr namesLis) (cdr valsLis))))))
+     ;; (else (lookup-class-closure className (cdr namesLis) (cdar valsLis))))))
+      (else (lookup-class-closure className (cdr namesLis) (cdar valsLis))))))
                     
 ; Does the first outer level parse of global variables and functions
 (define class-level-parse
