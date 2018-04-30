@@ -148,11 +148,14 @@
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; statement-list interpreter for when you want to return states instead of values
+; this-var -> the actual variable name for whatever "this" was 
+; original-env -> env where the function was called
 (define interpret-statement-list-for-env
-  (lambda (statement-list environment return break continue throw)
+  (lambda (statement-list environment this-var original-env return break continue throw)
     (if (null? statement-list)
-        environment
-        (interpret-statement-list-for-env (cdr statement-list) (interpret-statement-for-env (car statement-list) environment return break continue throw) return break continue throw))))
+        (update this-var (lookup 'this environment) original-env)
+        (interpret-statement-list-for-env (cdr statement-list) (interpret-statement-for-env (car statement-list) environment return break continue throw)
+                                          this-var original-env return break continue throw))))
 
 ; statement interpreter that returns states instead of values
 (define interpret-statement-for-env
@@ -224,9 +227,14 @@
 ; helper for M-state-function that reinitializes the continuations
 (define M-state-function-helper
   (lambda (funcall environment return break continue throw current-type this)
+    ;environment has object names inside
+    ;but after evaluating func-env object names disappear
+
+    ; this-var -> the actual variable name for whatever "this" was 
+    ; original-env -> env where the function was called
     (interpret-statement-list-for-env (get-function-body (funcall-name funcall) environment throw)
                                                  (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw this)
-                                                 return break continue throw)))
+                                                 (lhs-dot funcall) environment return break continue throw)))
 
 ; reinitializes the continuations for M-value-function
 (define M-value-function
