@@ -1,9 +1,9 @@
 class B{
     var x = 10;
 }
-class A extends B{
+class A{
    static function main(){
-      var a = new B();
-      return a.x;
+       var a = new B();
+	return a.x;
    }
 }

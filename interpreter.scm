@@ -55,19 +55,23 @@
                   (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
   ;;  (addParentClosure (class-dec-name class-statement) (cadr (extendsStmt class-statement)) (generate-class-closure-helper class-statement environment throw))))
 
-  
+
 ;;for generating closure of a class
 (define generate-class-closure-helper
   (lambda (class-statement environment throw)
     (insert (class-name class-statement)
-            (cons '() (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
+            (cons (class-extension class-statement) (class-level-parse (class-body class-statement) (newenvironment) throw)) environment)))
 
 (define class_Name cadr)
 
 ;generates the instance closure upon instantiation of an object
 (define generate-instance-closure
   (lambda (statement environment throw)
-     (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+    (display environment)))
+    ;; (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+
+;;(((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:232:40>)))) (() ((x) (10))))))
+;;(((a) ((((B))))) ((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:235:40>)))) (() ((x) (10))))))
 
 (define bind-this-to-closure
   (lambda (closure class-type extension environment)
@@ -114,7 +118,8 @@
     (cond
       ((null? namesLis) (myerror "Class does not exist:" className))
       ((eq? className (car namesLis)) (car valsLis))
-      (else (lookup-class-closure className (cdr namesLis) (cdr valsLis))))))
+     ;; (else (lookup-class-closure className (cdr namesLis) (cdar valsLis))))))
+      (else (lookup-class-closure className (cdr namesLis) (cdar valsLis))))))
                     
 ; Does the first outer level parse of global variables and functions
 (define class-level-parse
