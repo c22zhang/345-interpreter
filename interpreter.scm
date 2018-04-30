@@ -124,7 +124,8 @@
 (define interpret-statement
   (lambda (statement environment return break continue throw)
     (cond
-      ((eq? 'new (statement-type statement))  (generate-instance-closure statement environment throw))
+      ((eq? 'new (statement-type statement))  (ge
+                                               nerate-instance-closure statement environment throw))
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((and (eq? '= (statement-type statement)) (list? (caddr statement)) (eq? 'funcall (caaddr statement)))
@@ -169,12 +170,6 @@
   (lambda (func-name environment throw)
     (func-body (get-function-closure func-name environment throw))))
 
-;gets the function closure for a specified function
-(define get-function-closure
-  (lambda (func-name environment throw)
-    ;don't question it, it just works
-    (eval-expression func-name environment throw)))
-
 ; will work currently  
 (define generate-func-env
   (lambda (func-name function-closure func-call environment throw this)
@@ -192,27 +187,31 @@
   (lambda (func-name environment func-call throw this)
     (cond
       ;;((null? (cddr func-call)) (newframe))
-      ((not (eq? (length (car (get-function-closure func-name environment throw))) (length (eval-params (cddr func-call) environment throw)))) (myerror "Mismatched parameters and arguments"))
+      ((not (eq? (length (car (get-function-closure-wrapper func-name environment throw this)))
+                 (length (eval-params (cddr func-call) environment throw this))))
+                        (myerror "Mismatched parameters and arguments"))
       ;(else (display(get-function-closure func-name environment throw))))))
-      (else (list (cons 'this (car (get-function-closure func-name environment throw))) (cons this (eval-params (cddr func-call) environment throw)))))))
+      (else (list (cons 'this (car (get-function-closure-wrapper func-name environment throw this)))
+                  (cons this (eval-params (cddr func-call) environment throw this)))))))
 
 ; evaluates parameters for functions
 (define eval-params
-  (lambda (params-list environment throw)
+  (lambda (params-list environment throw this)
     (cond
       ((null? params-list) '())
-      (else (cons (eval-expression (car params-list) environment throw) (eval-params (cdr params-list) environment throw))))))
+      ;expr = (new A)
+      ;(generate-instance-closure expr (cons (class-layer environment) '()) throw)
+      ((list? (car params-list)) (begin (display "instance closure: ") (display (car params-list)) (newline)
+                                        (display (generate-instance-closure (cadr (car params-list)) (cons (class-layer environment) '()) throw)) (newline)
+       (cons (generate-instance-closure (cadr (car params-list)) (cons (class-layer environment) '()) throw)
+                                       (eval-params (cdr params-list) environment throw this))))
+      (else (cons (eval-expression (car params-list) environment throw) (eval-params (cdr params-list) environment throw this))))))
 
 ;inserts a function and its closure into the environment as a variable/value pair
 (define insert-function
   (lambda (statement environment throw)
     (insert (function-name statement)
             (function-closure statement (lambda (name closure call env throw this) (generate-func-env name closure call env throw this))) environment)))
-
-; evaluates the function environment function stored in the closure to get all bindings in scope for a function call
-(define evaluate-func-env
-  (lambda (name closure call env throw this)
-    ((caddr (get-function-closure name env throw)) name closure call env throw this)))
 
 (define funcall-name cadr)
 
@@ -246,9 +245,35 @@
 ;interprets functions
 (define M-value-function-helper
   (lambda (funcall environment return break continue throw current-type this)
-    (interpret-statement-list (get-function-body (funcall-name funcall) environment throw)
-                                                 (evaluate-func-env (funcall-name funcall) (get-function-closure (funcall-name funcall) environment throw) funcall environment throw this)
-                                                 return break continue throw)))
+    (interpret-statement-list (begin (display (get-function-body-wrapper (funcall-name funcall) environment throw this)) (newline)
+                              (get-function-body-wrapper (funcall-name funcall) environment throw this))
+                              (evaluate-func-env (funcall-name funcall)
+                                                 (get-function-closure-wrapper (funcall-name funcall) environment throw this) funcall environment throw this)
+                               return break continue throw)))
+
+(define get-function-closure-wrapper
+  (lambda (func-name environment throw this)
+    (cond
+      ((and (list? (cadr func-name)) (eq? (car func-name) 'dot)) (lookup (caddr func-name) (list (class-closure-body this))))
+      (else (get-function-closure func-name environment throw)))))
+
+;gets the function closure for a specified function
+(define get-function-closure
+  (lambda (func-name environment throw)
+    ;don't question it, it just works
+    (eval-expression func-name environment throw)))
+
+;deals with (dot (new A)) funcall
+(define get-function-body-wrapper
+  (lambda (func-name environment throw this)
+    (cond
+      ((and (list? (cadr func-name)) (eq? (car func-name) 'dot))  (cadr (lookup (caddr func-name) (list (class-closure-body this)))))
+      (else (get-function-body func-name environment throw)))))
+
+; evaluates the function environment function stored in the closure to get all bindings in scope for a function call
+(define evaluate-func-env
+  (lambda (name closure call env throw this)
+    ((caddr (get-function-closure-wrapper name env throw this)) name closure call env throw this)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -262,17 +287,16 @@
         (insert (get-declare-var statement) (eval-expression (get-declare-value statement) environment throw) environment)
         (insert (get-declare-var statement) 'novalue environment))))
 
+(define lhs cadr)
+(define inner-lhs caadr)
+
 ; Updates the environment to add an new binding for a variable
 (define interpret-assign
   (lambda (statement environment throw)
-      ;this function should be updated with an update function the updates the relevant non-static field in "this" 
-      ;if you run test4 rn itll complain about some symbol->string error
-      ;just know that it's caused by the interpreter trying to update (dot this x) in the top level state so you're gonna have to fix it
-
-     ;this line was just some debug info i was printing earlier
-     ;((eq? (car (get-assign-lhs statement)) 'dot) (begin (display statement) (newline) (display environment)))
     (cond
-     ((eq? 'dot (caadr statement))
+     ((not (list? (lhs statement)))
+      (update (get-assign-lhs statement) (eval-expression (get-assign-rhs statement) environment throw) environment))
+     ((eq? 'dot (inner-lhs statement))
       (update
        (lhs-dot statement)
        (get-updated-instance-closure
@@ -398,11 +422,14 @@
   (lambda (x)
     (caddr (cadr x))))
 (define new-value caddr)
+(define obj-defn cadr)
 
 
 (define get-class-type-from-closure
   (lambda (object-name environment)
-    (compile-time-class (lookup object-name environment))))
+    (cond
+      ((list? object-name) (obj-defn object-name))
+      (else (compile-time-class (lookup object-name environment))))))
     
 
 ; Evaluate a binary (or unary) operator.  Although i is not dealing with side effects, I have the routine evaluate the left operand first and then
@@ -413,15 +440,30 @@
     (cond
       ((eq? '! (operator expr)) (not (eval-expression (operand1 expr) environment throw)))
       ((eq? 'funcall (operator expr)) (M-value-function expr
-                                                        environment
+                                                        environment;(get-relevant-environment environment expr (lookup-this (lhs-dot expr) environment throw))
                                                         throw
                                                         (get-class-type-from-closure (lhs-dot expr) environment)
-                                                        (lookup (lhs-dot expr) environment)))
+                                                        (lookup-this (lhs-dot expr) environment throw)))
+      ;((and (eq? 'dot (operator expr)) (list? (cadr expr)))
       ((eq? 'dot (operator expr)) (lookup (instance-field expr) (list (caddar (lookup (instance-name expr) environment)))));
       ((eq? 'new (operator expr)) (generate-instance-closure expr (cons (class-layer environment) '()) throw))
       ((and (eq? '- (operator expr)) (= 2 (length expr))) (- (eval-expression (operand1 expr) environment throw)))
       (else (eval-binary-op2 expr (eval-expression (operand1 expr) environment throw) environment throw)))))
 
+; A lookup wrapper that deals with the case where it's just "new A()" w/o any kind of variable
+(define lookup-this
+  (lambda (variable environment throw)
+    (cond
+      ((list? variable) (generate-instance-closure variable (list (class-layer environment)) throw)) 
+      (else (lookup variable environment)))))
+
+; Basically just something to deal with the same case as lookup-this
+(define get-relevant-environment
+  (lambda (environment variable closure)
+    (cond
+      ((list? variable) (insert 'temp closure environment ))
+      (else environment))))
+        
 ; Complete the evaluation of the binary operator by evaluating the second operand and performing the operation.
 (define eval-binary-op2
   (lambda (expr op1value environment throw)
@@ -671,4 +713,3 @@
                             str
                             (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
 (error-break (display (string-append str (makestr "" vals)))))))
-
