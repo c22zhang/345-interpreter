@@ -633,14 +633,6 @@
 (define store
   (lambda (frame)
     (cadr frame)))
-
-(define addToParamList
-  (lambda (func param)
-    (cons (addParam-helper func param) (cdddr func))))
-
-(define addThisParam-helper
-  (lambda (func param)
-    (cons (car func) (cons (cadr func) (cons '(this) '())))))
      
 ; Generates the function closure given a function definition
 ; Note env-func should be a function that generates the function environment (Not worked out yet)
@@ -648,8 +640,6 @@
   (lambda (function-def env-func)
     (cond
       ((null? (function-name function-def)) (myerror "error: invalid function definition"))
-   ;;   ((and (null? (function-parameters function-def)) (eq? (eq? (function-name function-def) 'main) #f))
-   ;;    (list (cons 'this (function-parameters function-def)) (function-body function-def) env-func))
       (else (list (function-parameters function-def) (function-body function-def) env-func)))))
      
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
