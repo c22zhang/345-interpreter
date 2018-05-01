@@ -67,8 +67,8 @@
 ;generates the instance closure upon instantiation of an object
 (define generate-instance-closure
   (lambda (statement environment throw)
-    (display environment)))
-    ;; (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
+   ;; (display environment)))
+    (list (cons (list (class_Name statement)) (car (find-class-closure (class_Name statement) environment))))))
 
 ;;(((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:232:40>)))) (() ((x) (10))))))
 ;;(((a) ((((B))))) ((A B) ((() ((main) ((() ((var a (new B))) #<procedure:.../interpreter.scm:235:40>)))) (() ((x) (10))))))
